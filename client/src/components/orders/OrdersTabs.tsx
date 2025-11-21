@@ -344,38 +344,58 @@ export default function OrdersTabs({
                               <div className="text-right">
                                 <div className="font-medium text-gray-900">{item?.name_ar || item?.name || "غير محدد"}</div>
                                 {customerProduct?.size_caption && <div className="text-xs text-gray-500 mt-0.5">{customerProduct.size_caption}</div>}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {po.quantity_kg || 0}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`text-overrun-percentage-${po.id}`}>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                              {po.overrun_percentage ?? 0}%
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" data-testid={`text-final-quantity-${po.id}`}>
-                            {po.final_quantity_kg || po.quantity_kg || 0}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              po.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              po.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                              po.status === 'completed' ? 'bg-green-100 text-green-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {po.status === 'pending' ? 'معلق' :
-                               po.status === 'in_progress' ? 'قيد التنفيذ' :
-                               po.status === 'completed' ? 'مكتمل' :
-                               po.status}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{po.quantity_kg || 0}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`text-overrun-percentage-${po.id}`}>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{po.overrun_percentage ?? 0}%</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" data-testid={`text-final-quantity-${po.id}`}>{po.final_quantity_kg || po.quantity_kg || 0}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${po.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : po.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : po.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                {po.status === 'pending' ? 'معلق' : po.status === 'in_progress' ? 'قيد التنفيذ' : po.status === 'completed' ? 'مكتمل' : po.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                  {filteredProductionOrders.map((po: any) => {
+                    const order = orders.find((o: any) => o.id === po.order_id);
+                    const customer = customers.find((c: any) => c.id === order?.customer_id);
+                    const customerProduct = customerProducts.find((cp: any) => cp.id === po.customer_product_id);
+                    const category = categories.find((cat: any) => cat.id === customerProduct?.category_id);
+                    const item = items.find((itm: any) => itm.id === customerProduct?.item_id);
+                    
+                    return (
+                      <div key={po.id} className="bg-white rounded-lg border p-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="font-semibold text-base">{po.production_order_number}</div>
+                            <div className="text-xs text-muted-foreground">#{order?.order_number}</div>
+                          </div>
+                          <span className={`text-xs font-semibold px-2 py-1 rounded ${po.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : po.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                            {po.status === 'pending' ? 'معلق' : po.status === 'in_progress' ? 'قيد' : 'مكتمل'}
+                          </span>
+                        </div>
+                        <div className="text-sm font-medium">{customer?.name_ar || customer?.name}</div>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between"><span className="text-muted-foreground">المنتج:</span><span>{item?.name_ar || item?.name}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">الفئة:</span><span>{category?.name_ar || category?.name}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">الكمية (كجم):</span><span className="font-medium">{po.quantity_kg}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">النهائية (كجم):</span><span className="font-medium">{po.final_quantity_kg || po.quantity_kg}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">نسبة الزيادة:</span><span className="font-medium">{po.overrun_percentage ?? 0}%</span></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
