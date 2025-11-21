@@ -132,42 +132,47 @@ export default function OrdersTabs({
   };
 
   return (
-    <Tabs defaultValue="orders" className="space-y-4">
-      <TabsList>
-        <TabsTrigger value="orders">الطلبات</TabsTrigger>
-        <TabsTrigger value="production-orders">أوامر الإنتاج</TabsTrigger>
-      </TabsList>
+    <Tabs defaultValue="orders" className="space-y-4 w-full">
+      <div className="overflow-x-auto">
+        <TabsList className="w-full md:w-auto grid grid-cols-2 md:flex">
+          <TabsTrigger value="orders" className="text-xs md:text-sm">الطلبات</TabsTrigger>
+          <TabsTrigger value="production-orders" className="text-xs md:text-sm">أوامر الإنتاج</TabsTrigger>
+        </TabsList>
+      </div>
 
-      <TabsContent value="orders" className="space-y-4">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>إدارة الطلبات</CardTitle>
-              <div className="flex items-center space-x-2 space-x-reverse">
-                <OrdersSearch
-                  searchTerm={searchTerm}
-                  setSearchTerm={setSearchTerm}
-                  statusFilter={statusFilter}
-                  setStatusFilter={setStatusFilter}
-                />
+      <TabsContent value="orders" className="space-y-4 w-full">
+        <Card className="w-full">
+          <CardHeader className="p-3 md:p-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+              <CardTitle className="text-lg md:text-2xl">إدارة الطلبات</CardTitle>
+              <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
+                <div className="w-full md:w-auto">
+                  <OrdersSearch
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    statusFilter={statusFilter}
+                    setStatusFilter={setStatusFilter}
+                  />
+                </div>
                 <Dialog
                   open={isOrderDialogOpen}
                   onOpenChange={setIsOrderDialogOpen}
                 >
                   <DialogTrigger asChild>
-                    <Button onClick={onAddOrder} data-testid="button-add-order">
-                      <Plus className="h-4 w-4 mr-2" />
-                      إضافة طلب
+                    <Button onClick={onAddOrder} data-testid="button-add-order" className="text-xs md:text-sm">
+                      <Plus className="h-4 w-4 ml-1" />
+                      <span className="hidden sm:inline">إضافة طلب</span>
+                      <span className="sm:hidden">إضافة</span>
                     </Button>
                   </DialogTrigger>
                 </Dialog>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6">
             {/* Bulk Actions Bar */}
             {selectedOrders.length > 0 && (
-              <Alert className="mb-4">
+              <Alert className="mb-4 text-xs md:text-base">
                 <AlertDescription>
                   <div className="flex items-center justify-between">
                     <span className="font-medium">
