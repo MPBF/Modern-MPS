@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "../ui/button";
 import {
   Drawer,
@@ -12,6 +12,11 @@ import {
 } from "../ui/drawer";
 import { ScrollArea } from "../ui/scroll-area";
 import { Separator } from "../ui/separator";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../ui/collapsible";
 import { useAuth } from "../../hooks/use-auth";
 import { canAccessRoute } from "../../utils/roleUtils";
 import { navigationItems, getQuickAccessItems, groupNavigationItems } from "../../config/navigationConfig";
@@ -20,6 +25,7 @@ export default function MobileShell() {
   const [location] = useLocation();
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   // Filter accessible items based on user permissions
   const accessibleItems = navigationItems.filter(item => canAccessRoute(user, item.path));
@@ -29,6 +35,13 @@ export default function MobileShell() {
   
   // Group items for drawer
   const groupedItems = groupNavigationItems(accessibleItems);
+
+  const toggleGroup = (groupName: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }));
+  };
 
   const renderNavItem = (item: typeof navigationItems[0], testIdPrefix: string = "") => {
     const Icon = item.icon;
@@ -49,6 +62,29 @@ export default function MobileShell() {
           <span className="font-medium">{item.name_ar}</span>
         </button>
       </Link>
+    );
+  };
+
+  const renderGroup = (title: string, items: typeof navigationItems, groupKey: string, testIdPrefix: string) => {
+    if (items.length === 0) return null;
+
+    return (
+      <div key={groupKey}>
+        <Collapsible open={expandedGroups[groupKey]} onOpenChange={() => toggleGroup(groupKey)}>
+          <CollapsibleTrigger asChild>
+            <button
+              className="w-full flex items-center justify-between px-4 py-2 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              data-testid={`${testIdPrefix}group-toggle-${groupKey}`}
+            >
+              <span>{title}</span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${expandedGroups[groupKey] ? 'rotate-180' : ''}`} />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-1 mt-2">
+            {items.map(item => renderNavItem(item, `${testIdPrefix}${groupKey}-`))}
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
     );
   };
 
@@ -82,16 +118,24 @@ export default function MobileShell() {
               </DrawerHeader>
 
               <ScrollArea className="flex-1 p-4">
-                <div className="space-y-6">
-                  {/* Primary Operations */}
+                <div className="space-y-4">
+                  {/* Primary Operations - Always expanded by default */}
                   {groupedItems.primary.length > 0 && (
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 px-4">
-                        العمليات الرئيسية
-                      </h3>
-                      <div className="space-y-1">
-                        {groupedItems.primary.map(item => renderNavItem(item, "drawer-primary-"))}
-                      </div>
+                      <Collapsible open={expandedGroups.primary !== false} onOpenChange={() => toggleGroup('primary')}>
+                        <CollapsibleTrigger asChild>
+                          <button
+                            className="w-full flex items-center justify-between px-4 py-2 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                            data-testid="drawer-group-toggle-primary"
+                          >
+                            <span>العمليات الرئيسية</span>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedGroups.primary !== false ? 'rotate-180' : ''}`} />
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-1 mt-2">
+                          {groupedItems.primary.map(item => renderNavItem(item, "drawer-primary-"))}
+                        </CollapsibleContent>
+                      </Collapsible>
                     </div>
                   )}
 
@@ -99,14 +143,7 @@ export default function MobileShell() {
                   {groupedItems.support.length > 0 && (
                     <>
                       <Separator />
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 px-4">
-                          الدعم والمتابعة
-                        </h3>
-                        <div className="space-y-1">
-                          {groupedItems.support.map(item => renderNavItem(item, "drawer-support-"))}
-                        </div>
-                      </div>
+                      {renderGroup('الدعم والمتابعة', groupedItems.support, 'support', 'drawer-')}
                     </>
                   )}
 
@@ -114,14 +151,7 @@ export default function MobileShell() {
                   {groupedItems.admin.length > 0 && (
                     <>
                       <Separator />
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 px-4">
-                          الإدارة والإعدادات
-                        </h3>
-                        <div className="space-y-1">
-                          {groupedItems.admin.map(item => renderNavItem(item, "drawer-admin-"))}
-                        </div>
-                      </div>
+                      {renderGroup('الإدارة والإعدادات', groupedItems.admin, 'admin', 'drawer-')}
                     </>
                   )}
                 </div>
