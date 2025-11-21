@@ -169,37 +169,39 @@ export default function OrdersTable({
   };
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          {onOrderSelect && onSelectAll && (
-            <TableHead className="w-12">
-              <Checkbox
-                checked={
-                  allOrdersSelected
-                    ? true
-                    : someOrdersSelected
-                      ? "indeterminate"
-                      : false
-                }
-                onCheckedChange={handleSelectAll}
-                data-testid="checkbox-select-all"
-              />
-            </TableHead>
-          )}
-          <TableHead className="text-right">رقم الطلب</TableHead>
-          <TableHead className="text-right">العميل</TableHead>
-          <TableHead className="text-right">تاريخ الإنشاء</TableHead>
-          <TableHead className="text-right">المنشئ</TableHead>
-          <TableHead className="text-right">التسليم</TableHead>
-          <TableHead className="text-right">نسبة الإكمال</TableHead>
-          <TableHead className="text-right">ملاحظات</TableHead>
-          <TableHead className="text-center">الحالة</TableHead>
-          <TableHead className="text-center w-10 md:w-14">الإجراءات</TableHead>
-          
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <>
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {onOrderSelect && onSelectAll && (
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={
+                      allOrdersSelected
+                        ? true
+                        : someOrdersSelected
+                          ? "indeterminate"
+                          : false
+                    }
+                    onCheckedChange={handleSelectAll}
+                    data-testid="checkbox-select-all"
+                  />
+                </TableHead>
+              )}
+              <TableHead className="text-right">رقم الطلب</TableHead>
+              <TableHead className="text-right">العميل</TableHead>
+              <TableHead className="text-right">تاريخ الإنشاء</TableHead>
+              <TableHead className="text-right">المنشئ</TableHead>
+              <TableHead className="text-right">التسليم</TableHead>
+              <TableHead className="text-right">نسبة الإكمال</TableHead>
+              <TableHead className="text-right">ملاحظات</TableHead>
+              <TableHead className="text-center">الحالة</TableHead>
+              <TableHead className="text-center w-10 md:w-14">الإجراءات</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
         {orders.map((order: any) => {
           const customer = customers.find(
             (c: any) => c.id === order.customer_id,
@@ -451,7 +453,125 @@ export default function OrdersTable({
             </TableRow>
           );
         })}
-      </TableBody>
-    </Table>
+        </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {orders.map((order: any) => {
+          const customer = customers.find((c: any) => c.id === order.customer_id);
+          const user = users.find((u: any) => u.id === parseInt(order.created_by));
+          const { deliveryDate, daysRemaining } = calculateDeliveryInfo(order);
+          const orderProductionOrders = productionOrders.filter((po: any) => po.order_id === order.id);
+          
+          let avgFilmPercentage = 0;
+          let avgPrintingPercentage = 0;
+          let avgCuttingPercentage = 0;
+          
+          if (orderProductionOrders.length > 0) {
+            const totalOrderedQuantity = orderProductionOrders.reduce(
+              (sum: number, po: any) => sum + parseFloat(po.quantity_kg || 0),
+              0
+            );
+            
+            if (totalOrderedQuantity > 0) {
+              const weightedFilm = orderProductionOrders.reduce(
+                (sum: number, po: any) => {
+                  const producedQty = parseFloat(po.produced_quantity_kg || 0);
+                  const orderedQty = parseFloat(po.quantity_kg || 0);
+                  const percentage = orderedQty > 0 ? (producedQty / orderedQty) * 100 : 0;
+                  return sum + (orderedQty * percentage);
+                },
+                0
+              );
+              
+              const weightedPrinting = orderProductionOrders.reduce(
+                (sum: number, po: any) => {
+                  const printedQty = parseFloat(po.printed_quantity_kg || 0);
+                  const orderedQty = parseFloat(po.quantity_kg || 0);
+                  const percentage = orderedQty > 0 ? (printedQty / orderedQty) * 100 : 0;
+                  return sum + (orderedQty * percentage);
+                },
+                0
+              );
+              
+              const weightedCutting = orderProductionOrders.reduce(
+                (sum: number, po: any) => {
+                  const netQty = parseFloat(po.net_quantity_kg || 0);
+                  const orderedQty = parseFloat(po.quantity_kg || 0);
+                  const percentage = orderedQty > 0 ? (netQty / orderedQty) * 100 : 0;
+                  return sum + (orderedQty * percentage);
+                },
+                0
+              );
+              
+              avgFilmPercentage = weightedFilm / totalOrderedQuantity;
+              avgPrintingPercentage = weightedPrinting / totalOrderedQuantity;
+              avgCuttingPercentage = weightedCutting / totalOrderedQuantity;
+            }
+          }
+
+          return (
+            <div key={order.id} className="bg-white rounded-lg border p-4 space-y-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="font-semibold text-lg">{order.order_number}</div>
+                  <div className="text-sm text-muted-foreground">{customer?.name_ar || customer?.name}</div>
+                </div>
+                <div>{getStatusBadge(order.status || "pending")}</div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">الإنشاء:</span>
+                  <div className="font-medium">{order.created_at ? format(new Date(order.created_at), "dd/MM") : "-"}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">التسليم:</span>
+                  <div className={`font-medium ${daysRemaining !== null ? (daysRemaining > 0 ? "text-green-600" : "text-red-600") : ""}`}>
+                    {daysRemaining !== null ? `${daysRemaining} يوم` : "-"}
+                  </div>
+                </div>
+              </div>
+              
+              {orderProductionOrders.length > 0 && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">التقدم:</span>
+                  <ProductionProgress
+                    filmPercentage={avgFilmPercentage}
+                    printingPercentage={avgPrintingPercentage}
+                    cuttingPercentage={avgCuttingPercentage}
+                  />
+                </div>
+              )}
+              
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-blue-600"
+                  onClick={() => onViewOrder(order)}
+                  data-testid={`button-view-mobile-${order.id}`}
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  عرض
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-green-600"
+                  onClick={() => onPrintOrder(order)}
+                  data-testid={`button-print-mobile-${order.id}`}
+                >
+                  <FileText className="h-3 w-3 mr-1" />
+                  طباعة
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
