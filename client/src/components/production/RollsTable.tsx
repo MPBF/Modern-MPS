@@ -405,7 +405,8 @@ export default function RollsTable({ stage }: RollsTableProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -575,6 +576,65 @@ export default function RollsTable({ stage }: RollsTableProps) {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-3">
+          {rolls.map((roll) => (
+            <div key={roll.id} className="bg-white rounded-lg border p-4 space-y-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="font-semibold text-base">{roll.roll_number}</div>
+                  <div className="text-xs text-muted-foreground">{roll.production_order_number}</div>
+                </div>
+                <Badge variant="secondary" className={getStatusColor(roll.stage || "")}>
+                  <div className="flex items-center gap-1">
+                    {getStatusIcon(roll.stage || "")}
+                    <span className="text-xs">{getStatusText(roll.stage || "")}</span>
+                  </div>
+                </Badge>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground text-xs">الوزن:</span>
+                  <div className="font-medium">{roll.weight_kg ? parseFloat(roll.weight_kg.toString()).toFixed(1) : "0"} كجم</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-xs">الماكينة:</span>
+                  <div className="font-medium text-xs">{roll.machine_name_ar || roll.machine_name}</div>
+                </div>
+              </div>
+              
+              <div className="text-xs bg-gray-50 p-2 rounded">
+                <div className="font-medium mb-1">المسؤولون:</div>
+                <div className="space-y-1 text-gray-700">
+                  {roll.created_by && <div>إنتاج: {roll.created_by}</div>}
+                  {roll.printed_by && <div className="text-green-600">طباعة: {roll.printed_by}</div>}
+                  {roll.cut_by && <div className="text-purple-600">قص: {roll.cut_by}</div>}
+                </div>
+              </div>
+              
+              <div className="flex gap-1 overflow-x-auto">
+                <Button size="sm" variant="outline" onClick={() => printLabel(roll.id)} className="text-xs flex-shrink-0">
+                  <Tag className="w-3 h-3 ml-1" />
+                  ليبل
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => window.open(`/api/rolls/${roll.id}/qr`, "_blank")} className="text-xs flex-shrink-0">
+                  <QrCode className="w-3 h-3 ml-1" />
+                  QR
+                </Button>
+                {(roll.stage || "") !== "done" ? (
+                  <Button size="sm" onClick={() => moveToNextStage(roll.id, roll.stage || "film")} disabled={updateRollMutation.isPending} className="text-xs flex-shrink-0">
+                    <ArrowRight className="w-3 h-3 ml-1" />
+                    {nextStage[(roll.stage || "film") as keyof typeof nextStage] ? "التالي" : "إنهاء"}
+                  </Button>
+                ) : (
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">مكتمل</Badge>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>

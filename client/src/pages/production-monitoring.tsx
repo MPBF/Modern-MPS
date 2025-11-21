@@ -641,7 +641,7 @@ function SectionContent({
         </Card>
       </div>
 
-      {/* Users Performance Table */}
+      {/* Users Performance Table - Desktop */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -650,7 +650,7 @@ function SectionContent({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -665,36 +665,28 @@ function SectionContent({
                 {users.length > 0 ? (
                   users.map((user) => (
                     <TableRow key={user.user_id}>
-                      <TableCell className="font-medium">
-                        {user.display_name_ar || user.username}
-                      </TableCell>
+                      <TableCell className="font-medium">{user.display_name_ar || user.username}</TableCell>
                       <TableCell>{formatWeight(user.total_production_kg)}</TableCell>
                       <TableCell>{formatNumber(user.rolls_count)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Progress value={user.efficiency_score} className="w-20" />
-                          <span className="text-sm">{formatNumber(user.efficiency_score)}%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-500">
-                        {user.last_activity ? new Date(user.last_activity).toLocaleString('ar-EG') : '-'}
-                      </TableCell>
+                      <TableCell><Progress value={user.efficiency_score} className="w-20" /><span className="text-sm ml-2">{formatNumber(user.efficiency_score)}%</span></TableCell>
+                      <TableCell className="text-sm text-gray-500">{user.last_activity ? new Date(user.last_activity).toLocaleString('ar-EG') : '-'}</TableCell>
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-gray-500 py-8">
-                      لا توجد بيانات للمستخدمين
-                    </TableCell>
-                  </TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-gray-500 py-8">لا توجد بيانات</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
           </div>
+          <div className="md:hidden space-y-2">
+            {users.map((user) => (
+              <div key={user.user_id} className="bg-gray-50 p-3 rounded border text-sm"><div className="font-medium">{user.display_name_ar || user.username}</div><div className="grid grid-cols-2 gap-2 mt-2"><span>الإنتاج: <strong>{formatWeight(user.total_production_kg)}</strong></span><span>رولات: <strong>{formatNumber(user.rolls_count)}</strong></span></div><div className="mt-2">الكفاءة: <Progress value={user.efficiency_score} /><span className="text-xs">{formatNumber(user.efficiency_score)}%</span></div></div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Machines Production Table */}
+      {/* Machines Production Table - Desktop */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -703,7 +695,7 @@ function SectionContent({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -721,31 +713,25 @@ function SectionContent({
                       <TableCell className="font-medium">{machine.machine_name}</TableCell>
                       <TableCell>{formatWeight(machine.total_production_kg)}</TableCell>
                       <TableCell>{formatNumber(machine.rolls_produced)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Progress value={machine.utilization_percent} className="w-20" />
-                          <span className="text-sm">{formatNumber(machine.utilization_percent)}%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-500">
-                        {machine.last_production ? new Date(machine.last_production).toLocaleString('ar-EG') : '-'}
-                      </TableCell>
+                      <TableCell><Progress value={machine.utilization_percent} className="w-20" /><span className="text-sm ml-2">{formatNumber(machine.utilization_percent)}%</span></TableCell>
+                      <TableCell className="text-sm text-gray-500">{machine.last_production ? new Date(machine.last_production).toLocaleString('ar-EG') : '-'}</TableCell>
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-gray-500 py-8">
-                      لا توجد بيانات للمكائن
-                    </TableCell>
-                  </TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-gray-500 py-8">لا توجد بيانات</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
           </div>
+          <div className="md:hidden space-y-2">
+            {machines.map((machine) => (
+              <div key={machine.machine_id} className="bg-gray-50 p-3 rounded border text-sm"><div className="font-medium">{machine.machine_name}</div><div className="grid grid-cols-2 gap-2 mt-2"><span>الإنتاج: <strong>{formatWeight(machine.total_production_kg)}</strong></span><span>رولات: <strong>{formatNumber(machine.rolls_produced)}</strong></span></div><div className="mt-2">التشغيل: <Progress value={machine.utilization_percent} /><span className="text-xs">{formatNumber(machine.utilization_percent)}%</span></div></div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Rolls Tracking */}
+      {/* Rolls Tracking - Mobile Responsive */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -756,16 +742,9 @@ function SectionContent({
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2">
             <Search className="w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="ابحث برقم الرولة أو الأمر أو العميل..."
-              value={searchRoll}
-              onChange={(e) => setSearchRoll(e.target.value)}
-              className="flex-1"
-              data-testid="input-search-roll"
-            />
+            <Input placeholder="ابحث برقم الرولة..." value={searchRoll} onChange={(e) => setSearchRoll(e.target.value)} className="flex-1" data-testid="input-search-roll" />
           </div>
-
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -774,46 +753,26 @@ function SectionContent({
                   <TableHead className="text-right">العميل</TableHead>
                   <TableHead className="text-right">الوزن</TableHead>
                   <TableHead className="text-right">الحالة</TableHead>
-                  <TableHead className="text-right">التاريخ</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRolls.length > 0 ? (
-                  filteredRolls.slice(0, 20).map((roll) => (
-                    <TableRow key={roll.roll_id}>
-                      <TableCell className="font-mono font-medium">{roll.roll_number}</TableCell>
-                      <TableCell>{roll.production_order_number}</TableCell>
-                      <TableCell>{roll.customer_name}</TableCell>
-                      <TableCell>{formatWeight(roll.weight_kg)}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={roll.stage === 'done' ? 'default' : 'secondary'}
-                          className={roll.stage === 'done' ? 'bg-green-500' : ''}
-                        >
-                          {roll.stage === 'done' ? 'مكتمل' : roll.stage === 'film' ? 'فيلم' : roll.stage === 'printing' ? 'طباعة' : 'تقطيع'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-500">
-                        {new Date(roll.created_at).toLocaleDateString('ar-EG')}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-gray-500 py-8">
-                      {searchRoll ? 'لا توجد نتائج للبحث' : 'لا توجد رولات'}
-                    </TableCell>
+                {filteredRolls.slice(0, 20).map((roll) => (
+                  <TableRow key={roll.roll_id}>
+                    <TableCell className="font-mono">{roll.roll_number}</TableCell>
+                    <TableCell>{roll.production_order_number}</TableCell>
+                    <TableCell>{roll.customer_name}</TableCell>
+                    <TableCell>{formatWeight(roll.weight_kg)}</TableCell>
+                    <TableCell><Badge className={roll.stage === 'done' ? 'bg-green-500' : ''}>{roll.stage === 'done' ? 'مكتمل' : roll.stage === 'film' ? 'فيلم' : roll.stage === 'printing' ? 'طباعة' : 'تقطيع'}</Badge></TableCell>
                   </TableRow>
-                )}
+                ))}
               </TableBody>
             </Table>
           </div>
-
-          {filteredRolls.length > 20 && (
-            <p className="text-sm text-gray-500 text-center">
-              عرض 20 من {formatNumber(filteredRolls.length)} رولة
-            </p>
-          )}
+          <div className="md:hidden space-y-2">
+            {filteredRolls.slice(0, 10).map((roll) => (
+              <div key={roll.roll_id} className="bg-gray-50 p-3 rounded border"><div className="flex justify-between items-start"><div><strong>{roll.roll_number}</strong><div className="text-xs text-gray-600">{roll.production_order_number}</div></div><Badge className={roll.stage === 'done' ? 'bg-green-500 text-xs' : 'text-xs'}>{roll.stage === 'done' ? 'مكتمل' : roll.stage === 'film' ? 'فيلم' : 'طباعة'}</Badge></div><div className="mt-2 text-xs"><div>{roll.customer_name}</div><div>{formatWeight(roll.weight_kg)}</div></div></div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
