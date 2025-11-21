@@ -285,93 +285,65 @@ export default function OrdersTabs({
         />
       </TabsContent>
 
-      <TabsContent value="production-orders" className="space-y-4">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>أوامر الإنتاج</CardTitle>
-              <OrdersSearch
-                searchTerm={productionSearchTerm}
-                setSearchTerm={setProductionSearchTerm}
-                statusFilter={productionStatusFilter}
-                setStatusFilter={setProductionStatusFilter}
-                type="production"
-              />
+      <TabsContent value="production-orders" className="space-y-4 w-full">
+        <Card className="w-full">
+          <CardHeader className="p-3 md:p-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+              <CardTitle className="text-lg md:text-2xl">أوامر الإنتاج</CardTitle>
+              <div className="w-full md:w-auto">
+                <OrdersSearch
+                  searchTerm={productionSearchTerm}
+                  setSearchTerm={setProductionSearchTerm}
+                  statusFilter={productionStatusFilter}
+                  setStatusFilter={setProductionStatusFilter}
+                  type="production"
+                />
+              </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6">
             {filteredProductionOrders.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-gray-500 text-sm md:text-base">
                 {productionOrders.length === 0 
                   ? "لا توجد أوامر إنتاج" 
                   : "لا توجد نتائج مطابقة للبحث"}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        رقم أمر الإنتاج
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        رقم الطلب
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        العميل
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        الفئة
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        المنتج
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        الكمية (كجم)
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        نسبة الزيادة
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        الكمية النهائية (كجم)
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        الحالة
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredProductionOrders.map((po: any) => {
-                      const order = orders.find((o: any) => o.id === po.order_id);
-                      const customer = customers.find((c: any) => c.id === order?.customer_id);
-                      const customerProduct = customerProducts.find((cp: any) => cp.id === po.customer_product_id);
-                      const category = categories.find((cat: any) => cat.id === customerProduct?.category_id);
-                      const item = items.find((itm: any) => itm.id === customerProduct?.item_id);
-                      
-                      return (
-                        <tr key={po.id} className="hover:bg-gray-50" data-testid={`row-production-order-${po.id}`}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {po.production_order_number || po.id}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {order?.order_number || "غير محدد"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {customer?.name_ar || customer?.name || "غير محدد"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`text-category-${po.id}`}>
-                            {category?.name_ar || category?.name || "غير محدد"}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900" data-testid={`text-product-${po.id}`}>
-                            <div className="text-right">
-                              <div className="font-medium text-gray-900">
-                                {item?.name_ar || item?.name || "غير محدد"}
-                              </div>
-                              {customerProduct?.size_caption && (
-                                <div className="text-xs text-gray-500 mt-0.5">
-                                  {customerProduct.size_caption}
-                                </div>
-                              )}
+              <>
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">رقم أمر الإنتاج</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">رقم الطلب</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">العميل</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الفئة</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">المنتج</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الكمية (كجم)</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">نسبة الزيادة</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الكمية النهائية (كجم)</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الحالة</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredProductionOrders.map((po: any) => {
+                        const order = orders.find((o: any) => o.id === po.order_id);
+                        const customer = customers.find((c: any) => c.id === order?.customer_id);
+                        const customerProduct = customerProducts.find((cp: any) => cp.id === po.customer_product_id);
+                        const category = categories.find((cat: any) => cat.id === customerProduct?.category_id);
+                        const item = items.find((itm: any) => itm.id === customerProduct?.item_id);
+                        
+                        return (
+                          <tr key={po.id} className="hover:bg-gray-50" data-testid={`row-production-order-${po.id}`}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{po.production_order_number || po.id}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order?.order_number || "غير محدد"}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{customer?.name_ar || customer?.name || "غير محدد"}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-testid={`text-category-${po.id}`}>{category?.name_ar || category?.name || "غير محدد"}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900" data-testid={`text-product-${po.id}`}>
+                              <div className="text-right">
+                                <div className="font-medium text-gray-900">{item?.name_ar || item?.name || "غير محدد"}</div>
+                                {customerProduct?.size_caption && <div className="text-xs text-gray-500 mt-0.5">{customerProduct.size_caption}</div>}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

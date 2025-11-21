@@ -26,38 +26,38 @@ export default function OrdersSearch({
   const isProduction = type === 'production';
   
   return (
-    <div className="flex space-x-2 space-x-reverse">
-      <div className="relative">
+    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+      <div className="relative flex-1 sm:flex-none">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
-          placeholder={isProduction ? "البحث في أوامر الإنتاج..." : "البحث في الطلبات..."}
+          placeholder={isProduction ? "ابحث..." : "ابحث..."}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 w-64"
+          className="pl-10 w-full sm:w-64 text-xs sm:text-sm"
           data-testid={isProduction ? "input-search-production" : "input-search-orders"}
         />
       </div>
       <Select value={statusFilter || ""} onValueChange={setStatusFilter}>
-        <SelectTrigger className="w-48" data-testid="select-status-filter">
-          <SelectValue placeholder="فلترة حسب الحالة" />
+        <SelectTrigger className="w-full sm:w-48 text-xs sm:text-sm" data-testid="select-status-filter">
+          <SelectValue placeholder="الحالة" />
         </SelectTrigger>
         <SelectContent>
           {isProduction ? (
             <>
-              <SelectItem value="all">جميع أوامر الإنتاج</SelectItem>
+              <SelectItem value="all">الكل</SelectItem>
               <SelectItem value="pending">معلق</SelectItem>
               <SelectItem value="in_progress">قيد التنفيذ</SelectItem>
               <SelectItem value="completed">مكتمل</SelectItem>
             </>
           ) : (
             <>
-              <SelectItem value="all">جميع الطلبات</SelectItem>
+              <SelectItem value="all">الكل</SelectItem>
               <SelectItem value="waiting">انتظار</SelectItem>
-              <SelectItem value="in_production">قيد الإنتاج</SelectItem>
+              <SelectItem value="in_production">إنتاج</SelectItem>
               <SelectItem value="paused">معلق</SelectItem>
               <SelectItem value="completed">مكتمل</SelectItem>
               <SelectItem value="received">مستلم</SelectItem>
-              <SelectItem value="delivered">تم التوصيل</SelectItem>
+              <SelectItem value="delivered">توصيل</SelectItem>
             </>
           )}
         </SelectContent>
