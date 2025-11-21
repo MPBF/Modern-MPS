@@ -6,10 +6,9 @@ import QuickNotes from "../components/dashboard/QuickNotes";
 export default function Dashboard() {
   return (
     <PageLayout>
-      <Shortcuts />
-      <DashboardStats />
-
-      <div className="mb-6">
+      <div className="space-y-6">
+        <Shortcuts />
+        <DashboardStats />
         <QuickNotes />
       </div>
     </PageLayout>
