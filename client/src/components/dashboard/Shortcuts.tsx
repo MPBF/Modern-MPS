@@ -10,20 +10,20 @@ export default function Shortcuts() {
   ];
 
   return (
-    <div className="mb-6">
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch">
+    <div className="mb-8 pb-2">
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch w-full">
         {items.map((it) => (
-          <Link key={it.id} href={it.href}>
+          <Link key={it.id} href={it.href} className="flex-1">
             <div
               className={`flex items-center gap-3 px-5 py-3 rounded-lg text-white shadow-md hover:shadow-lg transition cursor-pointer
-                         ${it.bg} hover:opacity-95`}
+                         ${it.bg} hover:opacity-95 w-full`}
               title={it.label}
               aria-label={it.label}
               data-testid={`shortcut-${it.id}`}
             >
-              <it.Icon className="w-6 h-6" />
-              <span className="font-semibold">{it.label}</span>
-              <span className="ml-auto text-sm opacity-80">اختصار</span>
+              <it.Icon className="w-6 h-6 flex-shrink-0" />
+              <span className="font-semibold truncate">{it.label}</span>
+              <span className="ml-auto text-sm opacity-80 flex-shrink-0">اختصار</span>
             </div>
           </Link>
         ))}
