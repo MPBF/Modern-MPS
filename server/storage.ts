@@ -3109,6 +3109,8 @@ export class DatabaseStorage implements IStorage {
         printed_by_name: sql<string>`printed_user.display_name`,
         cut_by: rolls.cut_by,
         cut_by_name: sql<string>`cut_user.display_name`,
+        roll_dimensions: rolls.roll_dimensions,
+        side_gussets: rolls.side_gussets,
       })
       .from(rolls)
       .leftJoin(production_orders, eq(rolls.production_order_id, production_orders.id))
