@@ -6,6 +6,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Label } from "../ui/label";
+import { Checkbox } from "../ui/checkbox";
 import {
   Table,
   TableBody,
@@ -31,6 +32,8 @@ import {
   RefreshCw,
   X,
   Download,
+  Tag,
+  FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -80,6 +83,7 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedRolls, setSelectedRolls] = useState<Set<number>>(new Set());
 
   // جلب الرولات
   const { data: rolls = [], isLoading, refetch } = useQuery<RollData[]>({
@@ -218,6 +222,400 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
     setEndDate(undefined);
   };
 
+  // طباعة ملصق رول واحد (4x6 انش)
+  const printRollLabel = async (roll: RollData) => {
+    try {
+      const printWindow = window.open("", "_blank", "width=480,height=720");
+      if (!printWindow) {
+        alert("يرجى السماح بالنوافذ المنبثقة");
+        return;
+      }
+
+      const labelHTML = `
+        <html dir="rtl">
+          <head>
+            <meta charset="UTF-8">
+            <title>ملصق رول - ${roll.roll_number}</title>
+            <style>
+              @page {
+                size: 4in 6in;
+                margin: 0;
+              }
+              
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              
+              body {
+                font-family: 'Arial', 'Segoe UI', sans-serif;
+                direction: rtl;
+                width: 4in;
+                height: 6in;
+                padding: 3mm;
+                font-size: 9pt;
+                color: #000;
+                background: white;
+              }
+              
+              .label-container {
+                width: 100%;
+                height: 100%;
+                border: 2px solid #000;
+                display: flex;
+                flex-direction: column;
+                padding: 3mm;
+              }
+              
+              .header {
+                text-align: center;
+                border-bottom: 2px solid #000;
+                padding-bottom: 2mm;
+                margin-bottom: 2mm;
+              }
+              
+              .company-name {
+                font-size: 8pt;
+                font-weight: bold;
+                margin-bottom: 1mm;
+              }
+              
+              .roll-number {
+                font-size: 14pt;
+                font-weight: bold;
+                background: #000;
+                color: #fff;
+                padding: 1.5mm 3mm;
+                margin-top: 0.5mm;
+                display: inline-block;
+              }
+              
+              .content {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 2mm;
+                margin: 2mm 0;
+              }
+              
+              .info-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1mm;
+              }
+              
+              .info-box {
+                border: 1px solid #333;
+                padding: 1.5mm;
+                background: #fff;
+                min-height: 8mm;
+              }
+              
+              .info-box.full {
+                grid-column: 1 / -1;
+              }
+              
+              .info-box.highlight {
+                background: #ffe6e6;
+                border: 2px solid #c00;
+              }
+              
+              .label {
+                font-size: 6.5pt;
+                color: #666;
+                font-weight: 600;
+                margin-bottom: 0.5mm;
+                text-transform: uppercase;
+              }
+              
+              .value {
+                font-size: 8.5pt;
+                font-weight: bold;
+                color: #000;
+              }
+              
+              .footer {
+                margin-top: auto;
+                padding-top: 1.5mm;
+                border-top: 1px solid #333;
+                text-align: center;
+                font-size: 5.5pt;
+                color: #666;
+              }
+              
+              @media print {
+                body { margin: 0; padding: 0; }
+                .label-container { page-break-after: always; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="label-container">
+              <div class="header">
+                <div class="company-name">نظام إدارة الإنتاج</div>
+                <div class="roll-number">${roll.roll_number}</div>
+              </div>
+              
+              <div class="content">
+                ${roll.customer_name_ar || roll.customer_name ? `
+                  <div class="info-box full">
+                    <div class="label">العميل</div>
+                    <div class="value">${roll.customer_name_ar || roll.customer_name}</div>
+                  </div>
+                ` : ''}
+                
+                <div class="info-row">
+                  <div class="info-box">
+                    <div class="label">أمر الإنتاج</div>
+                    <div class="value">${roll.production_order_number}</div>
+                  </div>
+                  <div class="info-box">
+                    <div class="label">رقم الطلب</div>
+                    <div class="value">${roll.order_number}</div>
+                  </div>
+                </div>
+                
+                ${roll.item_name_ar || roll.item_name ? `
+                  <div class="info-box full">
+                    <div class="label">المنتج</div>
+                    <div class="value">${roll.item_name_ar || roll.item_name}</div>
+                  </div>
+                ` : ''}
+                
+                <div class="info-row">
+                  ${roll.size_caption ? `
+                    <div class="info-box">
+                      <div class="label">المقاس</div>
+                      <div class="value">${roll.size_caption}</div>
+                    </div>
+                  ` : '<div class="info-box"></div>'}
+                  <div class="info-box">
+                    <div class="label">المرحلة</div>
+                    <div class="value">${roll.stage === 'film' ? 'فيلم' : roll.stage === 'printing' ? 'طباعة' : roll.stage === 'cutting' ? 'تقطيع' : roll.stage === 'done' ? 'منتهي' : roll.stage}</div>
+                  </div>
+                </div>
+                
+                <div class="info-box highlight full">
+                  <div class="label">الوزن الكلي</div>
+                  <div class="value">${parseFloat(roll.weight_kg).toFixed(2)} كجم</div>
+                </div>
+              </div>
+              
+              <div class="footer">
+                طُبع: ${format(new Date(), 'dd/MM/yyyy HH:mm')}
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      printWindow.document.write(labelHTML);
+      printWindow.document.close();
+      printWindow.focus();
+      
+      setTimeout(() => {
+        printWindow.print();
+      }, 300);
+    } catch (error) {
+      alert("خطأ في طباعة الملصق");
+      console.error(error);
+    }
+  };
+
+  // طباعة تقرير A4 للرولات المحددة
+  const printA4Report = () => {
+    if (selectedRolls.size === 0) {
+      alert("يرجى تحديد رولات للطباعة");
+      return;
+    }
+
+    const selectedRollsData = filteredRolls.filter(r => selectedRolls.has(r.roll_id));
+    
+    const printWindow = window.open("", "_blank", "width=800,height=600");
+    if (!printWindow) {
+      alert("يرجى السماح بالنوافذ المنبثقة");
+      return;
+    }
+
+    const reportHTML = `
+      <html dir="rtl">
+        <head>
+          <meta charset="UTF-8">
+          <title>تقرير الرولات</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 20mm;
+            }
+            
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            
+            body {
+              font-family: 'Arial', 'Segoe UI', sans-serif;
+              direction: rtl;
+              color: #000;
+              background: white;
+              font-size: 10pt;
+              line-height: 1.6;
+            }
+            
+            .report-container {
+              max-width: 100%;
+            }
+            
+            .header {
+              text-align: center;
+              border-bottom: 3px solid #333;
+              padding-bottom: 10mm;
+              margin-bottom: 10mm;
+            }
+            
+            .company-name {
+              font-size: 16pt;
+              font-weight: bold;
+              margin-bottom: 2mm;
+            }
+            
+            .report-title {
+              font-size: 14pt;
+              font-weight: bold;
+              margin-bottom: 2mm;
+            }
+            
+            .report-date {
+              font-size: 9pt;
+              color: #666;
+            }
+            
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 10mm;
+            }
+            
+            th {
+              background: #f0f0f0;
+              border: 1px solid #333;
+              padding: 4mm;
+              font-weight: bold;
+              text-align: right;
+              font-size: 9pt;
+            }
+            
+            td {
+              border: 1px solid #ddd;
+              padding: 3mm;
+              font-size: 9pt;
+            }
+            
+            tr:nth-child(even) {
+              background: #f9f9f9;
+            }
+            
+            .summary {
+              margin-top: 10mm;
+              border-top: 2px solid #333;
+              padding-top: 5mm;
+            }
+            
+            .summary-row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 3mm;
+              padding: 2mm 0;
+            }
+            
+            .summary-label {
+              font-weight: bold;
+            }
+            
+            .summary-value {
+              font-weight: bold;
+              color: #0066cc;
+            }
+            
+            @media print {
+              body { margin: 0; padding: 0; }
+              .report-container { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="report-container">
+            <div class="header">
+              <div class="company-name">نظام إدارة الإنتاج</div>
+              <div class="report-title">تقرير الرولات</div>
+              <div class="report-date">التاريخ: ${format(new Date(), 'dd/MM/yyyy HH:mm')}</div>
+            </div>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th>رقم الرول</th>
+                  <th>المرحلة</th>
+                  <th>أمر الإنتاج</th>
+                  <th>العميل</th>
+                  <th>المنتج</th>
+                  <th>الوزن (كجم)</th>
+                  <th>التاريخ</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${selectedRollsData.map(roll => `
+                  <tr>
+                    <td>${roll.roll_number}</td>
+                    <td>${roll.stage === 'film' ? 'فيلم' : roll.stage === 'printing' ? 'طباعة' : roll.stage === 'cutting' ? 'تقطيع' : roll.stage === 'done' ? 'منتهي' : roll.stage}</td>
+                    <td>${roll.production_order_number}</td>
+                    <td>${roll.customer_name_ar || roll.customer_name}</td>
+                    <td>${roll.item_name_ar || roll.item_name || '-'}</td>
+                    <td>${parseFloat(roll.weight_kg).toFixed(2)}</td>
+                    <td>${format(new Date(roll.created_at), 'dd/MM/yyyy')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            
+            <div class="summary">
+              <div class="summary-row">
+                <span class="summary-label">عدد الرولات:</span>
+                <span class="summary-value">${selectedRollsData.length}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">إجمالي الوزن:</span>
+                <span class="summary-value">${selectedRollsData.reduce((sum, r) => sum + parseFloat(r.weight_kg), 0).toFixed(2)} كجم</span>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(reportHTML);
+    printWindow.document.close();
+    printWindow.focus();
+    
+    setTimeout(() => {
+      printWindow.print();
+    }, 300);
+  };
+
+  // دالة تحديث الرولات المختارة
+  const toggleRollSelection = (rollId: number) => {
+    const newSelected = new Set(selectedRolls);
+    if (newSelected.has(rollId)) {
+      newSelected.delete(rollId);
+    } else {
+      newSelected.add(rollId);
+    }
+    setSelectedRolls(newSelected);
+  };
+
+  // تحديد/إلغاء تحديد الكل
+  const toggleSelectAll = () => {
+    if (selectedRolls.size === filteredRolls.length) {
+      setSelectedRolls(new Set());
+    } else {
+      setSelectedRolls(new Set(filteredRolls.map(r => r.roll_id)));
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* الإحصائيات السريعة */}
@@ -325,6 +723,15 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
                 >
                   <Download className="h-4 w-4 ml-2" />
                   تصدير
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={printA4Report}
+                  disabled={selectedRolls.size === 0}
+                  data-testid="button-print-report-a4"
+                >
+                  <FileText className="h-4 w-4 ml-2" />
+                  طباعة تقرير ({selectedRolls.size})
                 </Button>
               </div>
             </div>
@@ -477,6 +884,13 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedRolls.size === filteredRolls.length && filteredRolls.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                        data-testid="checkbox-select-all-rolls"
+                      />
+                    </TableHead>
                     <TableHead className="text-right">رقم الرول</TableHead>
                     <TableHead className="text-right">المرحلة</TableHead>
                     <TableHead className="text-right">أمر الإنتاج</TableHead>
@@ -488,11 +902,19 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
                     <TableHead className="text-right">طبع بواسطة</TableHead>
                     <TableHead className="text-right">قطع بواسطة</TableHead>
                     <TableHead className="text-right">تاريخ الإنشاء</TableHead>
+                    <TableHead className="text-center w-24">الإجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredRolls.map((roll) => (
                     <TableRow key={roll.roll_id} data-testid={`row-roll-${roll.roll_id}`}>
+                      <TableCell className="w-12">
+                        <Checkbox
+                          checked={selectedRolls.has(roll.roll_id)}
+                          onCheckedChange={() => toggleRollSelection(roll.roll_id)}
+                          data-testid={`checkbox-roll-${roll.roll_id}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium" data-testid={`text-roll-number-${roll.roll_id}`}>
                         {roll.roll_number}
                       </TableCell>
@@ -537,6 +959,17 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
                       </TableCell>
                       <TableCell data-testid={`text-created-at-${roll.roll_id}`}>
                         {format(new Date(roll.created_at), "dd/MM/yyyy HH:mm", { locale: ar })}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => printRollLabel(roll)}
+                          title="طباعة ملصق (4x6)"
+                          data-testid={`button-print-label-${roll.roll_id}`}
+                        >
+                          <Tag className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
