@@ -548,6 +548,10 @@ export const rolls = pgTable(
     production_time_minutes: integer("production_time_minutes"), // وقت إنتاج الرول بالدقائق
     roll_created_at: timestamp("roll_created_at").defaultNow(), // وقت إنشاء الرول بدقة
     
+    // NEW: مقاس الرول والدخلات الجانبية
+    roll_dimensions: varchar("roll_dimensions", { length: 100 }), // مقاس الرول مثل "60x40"
+    side_gussets: decimal("side_gussets", { precision: 8, scale: 2 }), // الدخلات الجانبية
+    
     qr_code: varchar("qr_code", { length: 255 }), // Legacy field
     created_at: timestamp("created_at").notNull().defaultNow(),
     completed_at: timestamp("completed_at"), // Set when stage = 'done'

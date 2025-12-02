@@ -68,6 +68,8 @@ interface RollData {
   created_by_name?: string;
   printed_by_name?: string;
   cut_by_name?: string;
+  roll_dimensions?: string;
+  side_gussets?: string;
 }
 
 interface RollsTabProps {
@@ -391,6 +393,23 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
                     <div class="value">${roll.stage === 'film' ? 'فيلم' : roll.stage === 'printing' ? 'طباعة' : roll.stage === 'cutting' ? 'تقطيع' : roll.stage === 'done' ? 'منتهي' : roll.stage}</div>
                   </div>
                 </div>
+
+                ${roll.roll_dimensions || roll.side_gussets ? `
+                  <div class="info-row">
+                    ${roll.roll_dimensions ? `
+                      <div class="info-box">
+                        <div class="label">مقاس الرول</div>
+                        <div class="value">${roll.roll_dimensions}</div>
+                      </div>
+                    ` : '<div class="info-box"></div>'}
+                    ${roll.side_gussets ? `
+                      <div class="info-box">
+                        <div class="label">الدخلات الجانبية</div>
+                        <div class="value">${roll.side_gussets} سم</div>
+                      </div>
+                    ` : '<div class="info-box"></div>'}
+                  </div>
+                ` : ''}
                 
                 <div class="info-box highlight full">
                   <div class="label">الوزن الكلي</div>
