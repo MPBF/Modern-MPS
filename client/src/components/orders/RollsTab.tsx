@@ -374,7 +374,7 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
                 
                 ${roll.item_name_ar || roll.item_name ? `
                   <div class="info-box full">
-                    <div class="label">المنتج</div>
+                    <div class="label">الصنف</div>
                     <div class="value">${roll.item_name_ar || roll.item_name}</div>
                   </div>
                 ` : ''}
@@ -383,7 +383,7 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
                   ${roll.size_caption ? `
                     <div class="info-box">
                       <div class="label">المقاس</div>
-                      <div class="value">${roll.size_caption}</div>
+                      <div class="value">${roll.size_caption} سم</div>
                     </div>
                   ` : '<div class="info-box"></div>'}
                   <div class="info-box">
@@ -396,6 +396,24 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
                   <div class="label">الوزن الكلي</div>
                   <div class="value">${parseFloat(roll.weight_kg).toFixed(2)} كجم</div>
                 </div>
+
+                ${roll.created_by_name || roll.printed_by_name || roll.cut_by_name ? `
+                  <div class="info-box full">
+                    <div class="label">العاملين</div>
+                    <div class="value" style="font-size: 7.5pt; line-height: 1.3;">
+                      ${roll.created_by_name ? `<div>▪ فيلم بواسطة: <strong>${roll.created_by_name}</strong></div>` : ''}
+                      ${roll.printed_by_name ? `<div>▪ طباعة بواسطة: <strong>${roll.printed_by_name}</strong></div>` : ''}
+                      ${roll.cut_by_name ? `<div>▪ قطع بواسطة: <strong>${roll.cut_by_name}</strong></div>` : ''}
+                    </div>
+                  </div>
+                ` : ''}
+                
+                ${roll.created_at ? `
+                  <div class="info-box full">
+                    <div class="label">تاريخ الإنتاج</div>
+                    <div class="value">${format(new Date(roll.created_at), 'dd/MM/yyyy - HH:mm')}</div>
+                  </div>
+                ` : ''}
               </div>
               
               <div class="footer">
