@@ -3097,6 +3097,13 @@ export class DatabaseStorage implements IStorage {
         customer_id: orders.customer_id,
         customer_name: customers.name,
         customer_name_ar: customers.name_ar,
+        // Product and size information from customer_products
+        item_name: items.name,
+        item_name_ar: items.name_ar,
+        size_caption: customer_products.size_caption,
+        color: customer_products.master_batch_id,
+        punching: customer_products.punching,
+        raw_material: customer_products.raw_material,
         film_machine_id: rolls.film_machine_id,
         film_machine_name: sql<string>`film_machine.name`,
         printing_machine_id: rolls.printing_machine_id,
@@ -3114,6 +3121,8 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(production_orders, eq(rolls.production_order_id, production_orders.id))
       .leftJoin(orders, eq(production_orders.order_id, orders.id))
       .leftJoin(customers, eq(orders.customer_id, customers.id))
+      .leftJoin(customer_products, eq(production_orders.customer_product_id, customer_products.id))
+      .leftJoin(items, eq(customer_products.item_id, items.id))
       .leftJoin(alias(machines, 'film_machine'), eq(rolls.film_machine_id, sql`film_machine.id`))
       .leftJoin(alias(machines, 'printing_machine'), eq(rolls.printing_machine_id, sql`printing_machine.id`))
       .leftJoin(alias(machines, 'cutting_machine'), eq(rolls.cutting_machine_id, sql`cutting_machine.id`))
@@ -3200,22 +3209,26 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(rolls.created_at))
       .limit(100);
 
-    // Parse and add product info from qr_code_text
+    // Parse and add product info from qr_code_text as fallback for missing data
     const resultsWithProductInfo = results.map(roll => {
-      try {
-        const qrData = JSON.parse(roll.qr_code_text);
-        return {
-          ...roll,
-          item_name: qrData.item_name || qrData.product_name,
-          item_name_ar: qrData.item_name_ar || qrData.product_name_ar,
-          size_caption: qrData.size_caption,
-          raw_material: qrData.raw_material,
-          color: qrData.color,
-          punching: qrData.punching,
-        };
-      } catch {
-        return roll;
+      // Only parse QR if we don't have item_name from database
+      if (!roll.item_name && roll.qr_code_text) {
+        try {
+          const qrData = JSON.parse(roll.qr_code_text);
+          return {
+            ...roll,
+            item_name: qrData.item_name || qrData.product_name,
+            item_name_ar: qrData.item_name_ar || qrData.product_name_ar,
+            size_caption: roll.size_caption || qrData.size_caption,
+            raw_material: roll.raw_material || qrData.raw_material,
+            color: roll.color || qrData.color,
+            punching: roll.punching || qrData.punching,
+          };
+        } catch {
+          return roll;
+        }
       }
+      return roll;
     });
 
     setCachedData(cacheKey, resultsWithProductInfo, CACHE_TTL.SHORT);
