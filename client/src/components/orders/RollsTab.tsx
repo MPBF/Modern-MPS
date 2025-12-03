@@ -915,6 +915,7 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
                     <TableHead className="text-right">رقم الطلب</TableHead>
                     <TableHead className="text-right">العميل</TableHead>
                     <TableHead className="text-right">المنتج</TableHead>
+                    <TableHead className="text-right">المقاس</TableHead>
                     <TableHead className="text-right">الوزن (كجم)</TableHead>
                     <TableHead className="text-right">فيلم بواسطة</TableHead>
                     <TableHead className="text-right">طبع بواسطة</TableHead>
@@ -956,12 +957,10 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
                         {roll.customer_name_ar || roll.customer_name}
                       </TableCell>
                       <TableCell data-testid={`text-item-${roll.roll_id}`}>
-                        <div>
-                          <div className="font-medium">{roll.item_name_ar || roll.item_name || "-"}</div>
-                          {roll.size_caption && (
-                            <div className="text-xs text-gray-500">{roll.size_caption}</div>
-                          )}
-                        </div>
+                        {roll.item_name_ar || roll.item_name || "-"}
+                      </TableCell>
+                      <TableCell data-testid={`text-size-${roll.roll_id}`}>
+                        {roll.size_caption || "-"}
                       </TableCell>
                       <TableCell className="font-medium" data-testid={`text-weight-${roll.roll_id}`}>
                         {parseFloat(roll.weight_kg).toFixed(2)}
