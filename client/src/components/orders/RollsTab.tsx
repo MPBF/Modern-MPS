@@ -902,82 +902,84 @@ export default function RollsTab({ customers = [], productionOrders = [] }: Roll
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12">
+                    <TableHead className="w-12 text-center">
                       <Checkbox
                         checked={selectedRolls.size === filteredRolls.length && filteredRolls.length > 0}
                         onCheckedChange={toggleSelectAll}
                         data-testid="checkbox-select-all-rolls"
                       />
                     </TableHead>
-                    <TableHead className="text-right">رقم الرول</TableHead>
-                    <TableHead className="text-right">المرحلة</TableHead>
-                    <TableHead className="text-right">أمر الإنتاج</TableHead>
-                    <TableHead className="text-right">رقم الطلب</TableHead>
-                    <TableHead className="text-right">العميل</TableHead>
-                    <TableHead className="text-right">المنتج</TableHead>
-                    <TableHead className="text-right">المقاس</TableHead>
-                    <TableHead className="text-right">الوزن (كجم)</TableHead>
-                    <TableHead className="text-right">فيلم بواسطة</TableHead>
-                    <TableHead className="text-right">طبع بواسطة</TableHead>
-                    <TableHead className="text-right">قطع بواسطة</TableHead>
-                    <TableHead className="text-right">تاريخ الإنشاء</TableHead>
+                    <TableHead className="text-center min-w-[120px]">رقم الرول</TableHead>
+                    <TableHead className="text-center min-w-[90px]">المرحلة</TableHead>
+                    <TableHead className="text-center min-w-[120px]">أمر الإنتاج</TableHead>
+                    <TableHead className="text-center min-w-[110px]">رقم الطلب</TableHead>
+                    <TableHead className="text-center min-w-[140px]">العميل</TableHead>
+                    <TableHead className="text-center min-w-[150px]">المنتج</TableHead>
+                    <TableHead className="text-center min-w-[100px]">المقاس</TableHead>
+                    <TableHead className="text-center min-w-[100px]">الوزن (كجم)</TableHead>
+                    <TableHead className="text-center min-w-[130px]">فيلم بواسطة</TableHead>
+                    <TableHead className="text-center min-w-[130px]">طبع بواسطة</TableHead>
+                    <TableHead className="text-center min-w-[130px]">قطع بواسطة</TableHead>
+                    <TableHead className="text-center min-w-[140px]">تاريخ الإنشاء</TableHead>
                     <TableHead className="text-center w-24">الإجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredRolls.map((roll) => (
                     <TableRow key={roll.roll_id} data-testid={`row-roll-${roll.roll_id}`}>
-                      <TableCell className="w-12">
+                      <TableCell className="w-12 text-center">
                         <Checkbox
                           checked={selectedRolls.has(roll.roll_id)}
                           onCheckedChange={() => toggleRollSelection(roll.roll_id)}
                           data-testid={`checkbox-roll-${roll.roll_id}`}
                         />
                       </TableCell>
-                      <TableCell className="font-medium" data-testid={`text-roll-number-${roll.roll_id}`}>
+                      <TableCell className="font-medium text-center min-w-[120px]" data-testid={`text-roll-number-${roll.roll_id}`}>
                         {roll.roll_number}
                       </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={getStageBadgeVariant(roll.stage)} 
-                          className={`flex items-center gap-1 w-fit ${getStageBadgeClassName(roll.stage)}`}
-                          data-testid={`badge-stage-${roll.roll_id}`}
-                        >
-                          {getStageIcon(roll.stage)}
-                          {getStageNameAr(roll.stage)}
-                        </Badge>
+                      <TableCell className="text-center min-w-[90px]">
+                        <div className="flex justify-center">
+                          <Badge 
+                            variant={getStageBadgeVariant(roll.stage)} 
+                            className={`flex items-center gap-1 w-fit ${getStageBadgeClassName(roll.stage)}`}
+                            data-testid={`badge-stage-${roll.roll_id}`}
+                          >
+                            {getStageIcon(roll.stage)}
+                            {getStageNameAr(roll.stage)}
+                          </Badge>
+                        </div>
                       </TableCell>
-                      <TableCell data-testid={`text-production-order-${roll.roll_id}`}>
+                      <TableCell className="text-center min-w-[120px]" data-testid={`text-production-order-${roll.roll_id}`}>
                         {roll.production_order_number}
                       </TableCell>
-                      <TableCell data-testid={`text-order-number-${roll.roll_id}`}>
+                      <TableCell className="text-center min-w-[110px]" data-testid={`text-order-number-${roll.roll_id}`}>
                         {roll.order_number}
                       </TableCell>
-                      <TableCell data-testid={`text-customer-${roll.roll_id}`}>
+                      <TableCell className="text-center min-w-[140px]" data-testid={`text-customer-${roll.roll_id}`}>
                         {roll.customer_name_ar || roll.customer_name}
                       </TableCell>
-                      <TableCell data-testid={`text-item-${roll.roll_id}`}>
+                      <TableCell className="text-center min-w-[150px]" data-testid={`text-item-${roll.roll_id}`}>
                         {roll.item_name_ar || roll.item_name || "-"}
                       </TableCell>
-                      <TableCell data-testid={`text-size-${roll.roll_id}`}>
+                      <TableCell className="text-center min-w-[100px]" data-testid={`text-size-${roll.roll_id}`}>
                         {roll.size_caption || "-"}
                       </TableCell>
-                      <TableCell className="font-medium" data-testid={`text-weight-${roll.roll_id}`}>
+                      <TableCell className="font-medium text-center min-w-[100px]" data-testid={`text-weight-${roll.roll_id}`}>
                         {parseFloat(roll.weight_kg).toFixed(2)}
                       </TableCell>
-                      <TableCell className="text-sm" data-testid={`text-created-by-${roll.roll_id}`}>
+                      <TableCell className="text-sm text-center min-w-[130px]" data-testid={`text-created-by-${roll.roll_id}`}>
                         {roll.created_by_name || "-"}
                       </TableCell>
-                      <TableCell className="text-sm" data-testid={`text-printed-by-${roll.roll_id}`}>
+                      <TableCell className="text-sm text-center min-w-[130px]" data-testid={`text-printed-by-${roll.roll_id}`}>
                         {roll.printed_by_name || "-"}
                       </TableCell>
-                      <TableCell className="text-sm" data-testid={`text-cut-by-${roll.roll_id}`}>
+                      <TableCell className="text-sm text-center min-w-[130px]" data-testid={`text-cut-by-${roll.roll_id}`}>
                         {roll.cut_by_name || "-"}
                       </TableCell>
-                      <TableCell data-testid={`text-created-at-${roll.roll_id}`}>
+                      <TableCell className="text-center min-w-[140px]" data-testid={`text-created-at-${roll.roll_id}`}>
                         {format(new Date(roll.created_at), "dd/MM/yyyy HH:mm", { locale: ar })}
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center w-24">
                         <Button
                           variant="ghost"
                           size="sm"
