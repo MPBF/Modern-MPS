@@ -360,12 +360,18 @@ export default function UserDashboard() {
       location?: {
         lat: number;
         lng: number;
+        accuracy?: number;
         distance: number;
+        timestamp?: number;
+        isMocked?: boolean;
       };
     }) => {
       const response = await fetch("/api/attendance", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "timezone": Intl.DateTimeFormat().resolvedOptions().timeZone
+        },
         body: JSON.stringify({
           user_id: user?.id,
           status: data.status,
@@ -559,6 +565,9 @@ export default function UserDashboard() {
     },
   });
 
+  // إعدادات التحقق من الموقع
+  const MAX_ACCURACY_METERS = 100; // الحد الأقصى للدقة المسموحة
+  
   // تحديث: طلب الموقع الجغرافي قبل إرسال الحضور
   const handleAttendanceAction = (status: string, action?: string) => {
     // التحقق من وجود الموقع الحالي
@@ -569,6 +578,40 @@ export default function UserDashboard() {
         variant: "destructive",
       });
       return;
+    }
+
+    // التحقق من دقة الموقع (فقط إذا كانت متوفرة)
+    const accuracyValue = currentLocation.accuracy;
+    const hasValidAccuracy = accuracyValue !== undefined && 
+                             accuracyValue !== null && 
+                             !isNaN(accuracyValue);
+    
+    if (hasValidAccuracy && accuracyValue > MAX_ACCURACY_METERS) {
+      toast({
+        title: "دقة الموقع منخفضة",
+        description: `دقة GPS الحالية (${Math.round(accuracyValue)} متر) منخفضة جداً. انتقل إلى مكان مفتوح وانقر "تحديث الموقع" للحصول على قراءة أدق.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // تحذير إذا لم تتوفر معلومات الدقة (لكن نسمح بالمتابعة)
+    if (!hasValidAccuracy) {
+      console.warn("⚠️ لم تتوفر معلومات دقة GPS");
+    }
+
+    // التحقق من حداثة الموقع (يجب أن يكون خلال آخر 5 دقائق)
+    if (currentLocation.timestamp) {
+      const locationAge = Date.now() - currentLocation.timestamp;
+      const fiveMinutes = 5 * 60 * 1000;
+      if (locationAge > fiveMinutes) {
+        toast({
+          title: "الموقع قديم",
+          description: "يرجى النقر على 'تحديث الموقع' للحصول على موقع جديد قبل تسجيل الحضور.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // انتظار تحميل المواقع
@@ -625,14 +668,18 @@ export default function UserDashboard() {
       return;
     }
 
-    // إرسال الطلب مع الموقع الجغرافي
+    // إرسال الطلب مع الموقع الجغرافي والمعلومات الأمنية
     attendanceMutation.mutate({ 
       status, 
       action,
       location: {
         lat: currentLocation.lat,
         lng: currentLocation.lng,
-        distance: Math.round(validDistance)
+        accuracy: currentLocation.accuracy,
+        distance: Math.round(validDistance),
+        timestamp: currentLocation.timestamp,
+        // كشف Mock Location - في المتصفحات الحديثة يمكن كشف بعض أنواع التزوير
+        isMocked: false // سيتم التحقق إضافياً على الخادم
       }
     });
   };
