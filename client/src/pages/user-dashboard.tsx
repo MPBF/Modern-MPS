@@ -148,7 +148,7 @@ export default function UserDashboard() {
     queryKey: ["/api/factory-locations/active"],
   });
 
-  // دالة لطلب الموقع الجغرافي
+  // دالة لطلب الموقع الجغرافي بدقة عالية (تجمع عدة قراءات وتختار الأفضل)
   const requestLocation = () => {
     if (!navigator.geolocation) {
       setLocationError("المتصفح لا يدعم تحديد الموقع الجغرافي");
@@ -158,66 +158,122 @@ export default function UserDashboard() {
     setIsLoadingLocation(true);
     setLocationError("");
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const newLocation = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp,
-        };
-        
-        console.log('📍 تحديث الموقع:', {
-          lat: newLocation.lat,
-          lng: newLocation.lng,
-          accuracy: Math.round(newLocation.accuracy || 0),
-          time: new Date().toLocaleTimeString('ar')
+    let bestLocation: { lat: number; lng: number; accuracy: number; timestamp: number } | null = null;
+    let readingsCount = 0;
+    const maxReadings = 3;
+    const readingTimeout = 8000;
+
+    const tryGetLocation = () => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const newLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: position.timestamp,
+          };
+          
+          readingsCount++;
+          console.log(`📍 قراءة ${readingsCount}/${maxReadings}:`, {
+            lat: newLocation.lat,
+            lng: newLocation.lng,
+            accuracy: Math.round(newLocation.accuracy || 0),
+          });
+
+          // اختر أفضل قراءة (أقل accuracy = أفضل)
+          if (!bestLocation || newLocation.accuracy < bestLocation.accuracy) {
+            bestLocation = newLocation;
+          }
+
+          // إذا حصلنا على دقة ممتازة (< 30 متر) نتوقف
+          if (newLocation.accuracy <= 30 || readingsCount >= maxReadings) {
+            finishLocationRequest();
+          } else {
+            // جرب مرة أخرى للحصول على دقة أفضل
+            setTimeout(tryGetLocation, 1000);
+          }
+        },
+        (error) => {
+          readingsCount++;
+          console.warn(`⚠️ قراءة ${readingsCount} فشلت:`, error.message);
+          
+          if (readingsCount >= maxReadings) {
+            if (bestLocation) {
+              finishLocationRequest();
+            } else {
+              handleLocationError(error);
+            }
+          } else {
+            setTimeout(tryGetLocation, 1000);
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: readingTimeout,
+          maximumAge: 0
+        }
+      );
+    };
+
+    const finishLocationRequest = () => {
+      if (bestLocation) {
+        console.log('✅ أفضل قراءة:', {
+          lat: bestLocation.lat,
+          lng: bestLocation.lng,
+          accuracy: Math.round(bestLocation.accuracy),
         });
 
-        setCurrentLocation(newLocation);
+        setCurrentLocation(bestLocation);
         setLastLocationUpdate(new Date());
         setLocationError("");
         setIsLoadingLocation(false);
         
+        const accuracyMessage = bestLocation.accuracy <= 20 
+          ? "دقة عالية ممتازة" 
+          : bestLocation.accuracy <= 50 
+            ? "دقة جيدة" 
+            : bestLocation.accuracy <= 100 
+              ? "دقة متوسطة" 
+              : "دقة منخفضة - حاول الانتقال لمكان مفتوح";
+        
         toast({
           title: "✅ تم تحديث الموقع",
-          description: `الدقة: ${Math.round(newLocation.accuracy || 0)} متر`,
+          description: `الدقة: ±${Math.round(bestLocation.accuracy)} متر (${accuracyMessage})`,
         });
-      },
-      (error) => {
-        setIsLoadingLocation(false);
-        let errorMessage = "لا يمكن الحصول على الموقع الحالي";
-        
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = "تم رفض الإذن للوصول إلى الموقع. يرجى السماح بالوصول إلى الموقع من إعدادات المتصفح";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "معلومات الموقع غير متوفرة. تأكد من تفعيل خدمات الموقع في جهازك";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "انتهت مهلة طلب الموقع. يرجى المحاولة مرة أخرى";
-            break;
-        }
-        
-        console.error('❌ خطأ في الموقع:', errorMessage, error);
-        setLocationError(errorMessage);
-        
-        toast({
-          title: "خطأ في تحديد الموقع",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
       }
-    );
+    };
+
+    const handleLocationError = (error: GeolocationPositionError) => {
+      setIsLoadingLocation(false);
+      let errorMessage = "لا يمكن الحصول على الموقع الحالي";
+      
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = "تم رفض الإذن للوصول إلى الموقع. يرجى السماح بالوصول إلى الموقع من إعدادات المتصفح";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = "معلومات الموقع غير متوفرة. تأكد من تفعيل خدمات الموقع في جهازك";
+          break;
+        case error.TIMEOUT:
+          errorMessage = "انتهت مهلة طلب الموقع. يرجى المحاولة مرة أخرى في مكان مفتوح";
+          break;
+      }
+      
+      console.error('❌ خطأ في الموقع:', errorMessage, error);
+      setLocationError(errorMessage);
+      
+      toast({
+        title: "خطأ في تحديد الموقع",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    };
+
+    // ابدأ جمع القراءات
+    tryGetLocation();
   };
 
-  // تفعيل التتبع المستمر للموقع
+  // تفعيل التتبع المستمر للموقع مع الاحتفاظ بأفضل قراءة
   const startLocationWatch = () => {
     if (!navigator.geolocation) {
       return;
@@ -237,16 +293,27 @@ export default function UserDashboard() {
           timestamp: position.timestamp,
         };
         
-        console.log('📍 تحديث تلقائي للموقع:', {
-          lat: newLocation.lat,
-          lng: newLocation.lng,
-          accuracy: Math.round(newLocation.accuracy || 0),
-          time: new Date().toLocaleTimeString('ar')
+        // فقط قم بتحديث الموقع إذا كانت القراءة الجديدة أفضل أو إذا مر وقت طويل
+        setCurrentLocation((prevLocation) => {
+          const shouldUpdate = 
+            !prevLocation || 
+            newLocation.accuracy < (prevLocation.accuracy || Infinity) ||
+            (Date.now() - (prevLocation.timestamp || 0)) > 60000; // تحديث كل دقيقة على الأقل
+          
+          if (shouldUpdate) {
+            console.log('📍 تحديث تلقائي للموقع:', {
+              lat: newLocation.lat,
+              lng: newLocation.lng,
+              accuracy: Math.round(newLocation.accuracy || 0),
+              reason: !prevLocation ? 'أول قراءة' : 
+                      newLocation.accuracy < (prevLocation.accuracy || Infinity) ? 'دقة أفضل' : 'تحديث دوري'
+            });
+            setLastLocationUpdate(new Date());
+            setLocationError("");
+            return newLocation;
+          }
+          return prevLocation;
         });
-
-        setCurrentLocation(newLocation);
-        setLastLocationUpdate(new Date());
-        setLocationError("");
       },
       (error) => {
         console.error('❌ خطأ في التتبع التلقائي:', error);
@@ -268,8 +335,8 @@ export default function UserDashboard() {
       },
       {
         enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 30000
+        timeout: 20000,
+        maximumAge: 10000
       }
     );
 
