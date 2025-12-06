@@ -56,6 +56,7 @@ import { useForm } from "react-hook-form";
 import { useToast } from "../hooks/use-toast";
 import { useAuth } from "../hooks/use-auth";
 import { formatNumber } from "../lib/formatNumber";
+import LocationMapPicker from "../components/LocationMapPicker";
 
 // دالة حساب المسافة بين نقطتين جغرافيتين (Haversine formula)
 function calculateDistance(
@@ -1746,6 +1747,31 @@ export default function UserDashboard() {
                               </p>
                             </div>
                           )}
+                        </div>
+
+                        {/* Map Display */}
+                        <div className="space-y-2">
+                          <h3 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                            <MapPin className="h-4 w-4" />
+                            موقعك على الخريطة
+                          </h3>
+                          <LocationMapPicker
+                            latitude={currentLocation.lat}
+                            longitude={currentLocation.lng}
+                            radius={currentLocation.accuracy ? Math.round(currentLocation.accuracy) : 50}
+                            onLocationChange={() => {}}
+                            editable={false}
+                            factoryLocations={activeLocations?.map((loc: any) => ({
+                              id: loc.id,
+                              name: loc.name_ar || loc.name,
+                              latitude: parseFloat(loc.latitude),
+                              longitude: parseFloat(loc.longitude),
+                              radius: loc.allowed_radius,
+                            }))}
+                          />
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            🔵 موقعك الحالي | 🏭 مواقع المصانع المسجلة
+                          </p>
                         </div>
                         
                         {/* Factory Locations Distance Table */}
