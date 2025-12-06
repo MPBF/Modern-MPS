@@ -38,6 +38,12 @@ export type PermissionKey =
   | 'view_film_dashboard'
   | 'view_printing_dashboard'
   | 'view_cutting_dashboard'
+  | 'view_mixing'
+  | 'manage_mixing'
+  | 'view_system_monitoring'
+  | 'view_tools'
+  | 'view_production_reports'
+  | 'view_orders'
   | 'admin'; // Super admin permission
 
 export interface Permission {
@@ -291,6 +297,58 @@ export const PERMISSIONS: Permission[] = [
     description: 'Manage WhatsApp integration and settings'
   },
   
+  // Material Mixing
+  { 
+    id: 'view_mixing', 
+    name: 'View Material Mixing', 
+    name_ar: 'عرض خلط المواد', 
+    category: 'الإنتاج',
+    description: 'View material mixing batches and formulas'
+  },
+  { 
+    id: 'manage_mixing', 
+    name: 'Manage Material Mixing', 
+    name_ar: 'إدارة خلط المواد', 
+    category: 'الإنتاج',
+    description: 'Create and manage material mixing batches'
+  },
+  
+  // System Monitoring
+  { 
+    id: 'view_system_monitoring', 
+    name: 'View System Monitoring', 
+    name_ar: 'عرض مراقبة النظام', 
+    category: 'المراقبة',
+    description: 'View system monitoring and performance'
+  },
+  
+  // Tools
+  { 
+    id: 'view_tools', 
+    name: 'View Tools', 
+    name_ar: 'عرض الأدوات', 
+    category: 'عام',
+    description: 'Access to production tools and utilities'
+  },
+  
+  // Production Reports
+  { 
+    id: 'view_production_reports', 
+    name: 'View Production Reports', 
+    name_ar: 'عرض تقارير الإنتاج', 
+    category: 'التقارير',
+    description: 'View production reports and statistics'
+  },
+  
+  // Orders View
+  { 
+    id: 'view_orders', 
+    name: 'View Orders', 
+    name_ar: 'عرض الطلبات', 
+    category: 'الطلبات',
+    description: 'View orders without editing permissions'
+  },
+  
   // Admin
   { 
     id: 'admin', 
@@ -302,39 +360,47 @@ export const PERMISSIONS: Permission[] = [
 ];
 
 // Route to permission mapping
+// NOTE: Routes that redirect immediately (like /production-queues -> /orders) are not included here
+// because permission check happens on the target route, not the redirect source
 export const ROUTE_PERMISSIONS: Record<string, PermissionKey[]> = {
+  // Main pages
   '/': ['view_home', 'view_dashboard'],
   '/dashboard': ['view_dashboard'],
-  '/orders': ['manage_orders'],
+  '/orders': ['view_orders', 'manage_orders'],
   '/production': ['view_production', 'manage_production'],
-  '/production-dashboard': ['view_film_dashboard', 'view_printing_dashboard', 'view_cutting_dashboard'],
-  '/film-operator': ['view_film_dashboard'],
-  '/printing-operator': ['view_printing_dashboard'],
-  '/cutting-operator': ['view_cutting_dashboard'],
+  '/production-dashboard': ['view_film_dashboard', 'view_printing_dashboard', 'view_cutting_dashboard', 'view_production'],
   '/maintenance': ['view_maintenance', 'manage_maintenance'],
   '/quality': ['view_quality', 'manage_quality'],
   '/warehouse': ['view_warehouse', 'manage_warehouse'],
   '/inventory': ['view_inventory', 'manage_inventory'],
   '/hr': ['view_hr', 'manage_hr'],
-  '/reports': ['view_reports'],
+  '/reports': ['view_reports', 'view_production_reports'],
   '/settings': ['manage_settings', 'admin'],
-  '/definitions': ['manage_definitions'],
+  '/definitions': ['manage_definitions', 'admin'],
   '/users': ['manage_users'],
   '/user-dashboard': ['view_user_dashboard'],
   '/notifications': ['view_notifications'],
+  
+  // Monitoring and alerts
   '/alerts': ['view_alerts', 'manage_alerts'],
   '/system-health': ['view_system_health'],
-  '/production-monitoring': ['view_production_monitoring'],
-  '/meta-whatsapp-setup': ['manage_whatsapp'],
-  '/whatsapp-setup': ['manage_whatsapp'],
-  '/whatsapp-test': ['manage_whatsapp'],
-  '/whatsapp-troubleshoot': ['manage_whatsapp'],
-  '/whatsapp-production-setup': ['manage_whatsapp'],
-  '/whatsapp-final-setup': ['manage_whatsapp'],
-  '/twilio-content': ['manage_whatsapp'],
-  '/whatsapp-template-test': ['manage_whatsapp'],
-  '/whatsapp-webhooks': ['manage_whatsapp'],
-   '/tools': ['view_production', 'manage_production'],
+  '/system-monitoring': ['view_system_monitoring', 'view_system_health', 'admin'],
+  '/production-monitoring': ['view_production_monitoring', 'view_production'],
+  
+  // Tools and utilities
+  '/tools': ['view_tools', 'view_production', 'manage_production'],
+  '/material-mixing': ['view_mixing', 'manage_mixing', 'view_production'],
+  
+  // WhatsApp integration
+  '/meta-whatsapp-setup': ['manage_whatsapp', 'admin'],
+  '/whatsapp-setup': ['manage_whatsapp', 'admin'],
+  '/whatsapp-test': ['manage_whatsapp', 'admin'],
+  '/whatsapp-troubleshoot': ['manage_whatsapp', 'admin'],
+  '/whatsapp-production-setup': ['manage_whatsapp', 'admin'],
+  '/whatsapp-final-setup': ['manage_whatsapp', 'admin'],
+  '/twilio-content': ['manage_whatsapp', 'admin'],
+  '/whatsapp-template-test': ['manage_whatsapp', 'admin'],
+  '/whatsapp-webhooks': ['manage_whatsapp', 'admin'],
 };
 
 // Settings tabs permissions
