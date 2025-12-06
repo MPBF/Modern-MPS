@@ -5533,20 +5533,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // تسجيل الحضور مع تحقق الموقع الجغرافي
+  // تسجيل الحضور مع تحقق الموقع الجغرافي المحسّن
   app.post("/api/attendance", async (req, res) => {
     try {
-      // جلب جميع المواقع النشطة للمصانع
+      const isDevMode = process.env.NODE_ENV === 'development';
+      
+      // =============== إعدادات الحماية ===============
+      const MAX_ACCURACY_METERS = 100; // الحد الأقصى للدقة المسموحة بالأمتار
+      const MIN_ACCURACY_METERS = 5;   // الحد الأدنى للدقة (أقل من ذلك يعني تزوير محتمل)
+      
+      // =============== جمع معلومات الجهاز للتدقيق ===============
+      const deviceInfo = {
+        ip: req.ip || req.connection?.remoteAddress || 'unknown',
+        userAgent: req.headers['user-agent'] || 'unknown',
+        timestamp: new Date().toISOString(),
+        timezone: req.headers['timezone'] || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+      
+      // =============== التحقق من وجود بيانات الموقع ===============
+      if (!req.body.location || !req.body.location.lat || !req.body.location.lng) {
+        console.log(`⚠️ [حماية] محاولة تسجيل بدون موقع - IP: ${deviceInfo.ip}`);
+        return res.status(400).json({
+          message: "يجب توفير الموقع الجغرافي لتسجيل الحضور",
+          code: "LOCATION_REQUIRED"
+        });
+      }
+
+      const { lat, lng, accuracy, isMocked, altitudeAccuracy } = req.body.location;
+      
+      // =============== التحقق من دقة الموقع ===============
+      // نتعامل مع accuracy كرقم صالح أو نتجاهل التحقق إذا لم تتوفر
+      const hasValidAccuracy = accuracy !== undefined && accuracy !== null && !isNaN(accuracy);
+      
+      if (hasValidAccuracy) {
+        // دقة عالية جداً (أقل من 5 متر) قد تشير لتزوير
+        if (accuracy < MIN_ACCURACY_METERS) {
+          console.log(`🚨 [حماية] دقة مشبوهة جداً (${accuracy}م) - المستخدم: ${req.body.user_id}, IP: ${deviceInfo.ip}`);
+          // نسجل التحذير لكن لا نرفض (قد يكون GPS حقيقي ممتاز)
+        }
+        
+        // دقة منخفضة جداً
+        if (accuracy > MAX_ACCURACY_METERS) {
+          console.log(`❌ [حماية] دقة GPS منخفضة (${accuracy}م) - المستخدم: ${req.body.user_id}`);
+          return res.status(400).json({
+            message: `دقة الموقع منخفضة جداً (${Math.round(accuracy)} متر). يرجى الانتظار حتى تتحسن دقة GPS أو الخروج لمكان مفتوح.`,
+            code: "LOW_ACCURACY",
+            accuracy: Math.round(accuracy),
+            maxAllowed: MAX_ACCURACY_METERS
+          });
+        }
+      } else {
+        // تحذير في السجل إذا لم تتوفر معلومات الدقة
+        console.log(`⚠️ [تحذير] لم تتوفر معلومات دقة GPS للمستخدم: ${req.body.user_id}`);
+      }
+
+      // =============== كشف تزوير الموقع (Mock Location) ===============
+      if (isMocked === true) {
+        console.log(`🚨 [أمان] اكتشاف موقع مزور! المستخدم: ${req.body.user_id}, IP: ${deviceInfo.ip}`);
+        
+        // تسجيل محاولة التلاعب
+        try {
+          await storage.createViolation({
+            user_id: req.body.user_id,
+            type: 'location_spoofing',
+            description: `محاولة تسجيل حضور بموقع مزور`,
+            details: JSON.stringify({
+              location: { lat, lng },
+              accuracy,
+              deviceInfo,
+              timestamp: new Date().toISOString()
+            }),
+            severity: 'high'
+          });
+        } catch (violationError) {
+          console.error('خطأ في تسجيل المخالفة:', violationError);
+        }
+        
+        return res.status(403).json({
+          message: "تم اكتشاف محاولة تزوير الموقع! هذه المحاولة تم تسجيلها وسيتم إبلاغ الإدارة.",
+          code: "MOCK_LOCATION_DETECTED"
+        });
+      }
+
+      // =============== التحقق من صحة إحداثيات الموقع ===============
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        console.log(`❌ [حماية] إحداثيات غير صالحة: lat=${lat}, lng=${lng}`);
+        return res.status(400).json({
+          message: "إحداثيات الموقع غير صالحة",
+          code: "INVALID_COORDINATES"
+        });
+      }
+
+      // =============== جلب مواقع المصانع النشطة ===============
       const activeLocations = await storage.getActiveFactoryLocations();
 
-      // دالة حساب المسافة بين نقطتين جغرافيتين
+      if (activeLocations.length === 0) {
+        return res.status(400).json({
+          message: "لا توجد مواقع مصانع نشطة. يرجى التواصل مع الإدارة.",
+          code: "NO_ACTIVE_LOCATIONS"
+        });
+      }
+
+      // =============== دالة حساب المسافة (Haversine) ===============
       const calculateDistance = (
         lat1: number,
         lon1: number,
         lat2: number,
         lon2: number
       ): number => {
-        const R = 6371e3;
+        const R = 6371e3; // نصف قطر الأرض بالأمتار
         const φ1 = (lat1 * Math.PI) / 180;
         const φ2 = (lat2 * Math.PI) / 180;
         const Δφ = ((lat2 - lat1) * Math.PI) / 180;
@@ -5560,45 +5655,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return R * c;
       };
 
-      // التحقق من وجود بيانات الموقع
-      if (!req.body.location || !req.body.location.lat || !req.body.location.lng) {
-        return res.status(400).json({
-          message: "يجب توفير الموقع الجغرافي لتسجيل الحضور",
-        });
-      }
-
-      // التحقق من وجود مواقع نشطة
-      if (activeLocations.length === 0) {
-        return res.status(400).json({
-          message: "لا توجد مواقع مصانع نشطة. يرجى التواصل مع الإدارة.",
-        });
-      }
-
-      // التحقق من وجود المستخدم ضمن أي من المواقع النشطة
+      // =============== التحقق من الموقع ===============
       let isWithinRange = false;
       let closestDistance = Infinity;
-      let closestLocation = null;
-
-      const isDevMode = process.env.NODE_ENV === 'development';
+      let closestLocation: any = null;
+      let matchedLocation: any = null;
 
       if (isDevMode) {
         console.log(`📍 بدء التحقق من الموقع للمستخدم ${req.body.user_id}`);
-        console.log(`📍 الموقع المستلم: lat=${req.body.location.lat}, lng=${req.body.location.lng}`);
+        console.log(`📍 الموقع المستلم: lat=${lat}, lng=${lng}, دقة=${accuracy || 'غير محددة'}م`);
         console.log(`📍 عدد المواقع النشطة: ${activeLocations.length}`);
       }
 
       for (const factoryLocation of activeLocations) {
         const distance = calculateDistance(
-          req.body.location.lat,
-          req.body.location.lng,
+          lat,
+          lng,
           parseFloat(factoryLocation.latitude),
           parseFloat(factoryLocation.longitude)
         );
+
+        // نأخذ دقة GPS بعين الاعتبار عند حساب المسافة الفعلية
+        const effectiveDistance = accuracy ? Math.max(0, distance - accuracy) : distance;
+        const effectiveRadius = factoryLocation.allowed_radius + (accuracy || 0);
 
         if (isDevMode) {
           console.log(`📍 مقارنة مع ${factoryLocation.name_ar}:`);
           console.log(`   - موقع المصنع: lat=${factoryLocation.latitude}, lng=${factoryLocation.longitude}`);
           console.log(`   - المسافة المحسوبة: ${Math.round(distance)} متر`);
+          console.log(`   - المسافة الفعلية (مع الدقة): ${Math.round(effectiveDistance)} متر`);
           console.log(`   - النطاق المسموح: ${factoryLocation.allowed_radius} متر`);
           console.log(`   - ضمن النطاق: ${distance <= factoryLocation.allowed_radius ? 'نعم ✅' : 'لا ❌'}`);
         }
@@ -5610,40 +5695,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (distance <= factoryLocation.allowed_radius) {
           isWithinRange = true;
+          matchedLocation = factoryLocation;
           console.log(`✅ تم التحقق من الموقع عند ${factoryLocation.name_ar} - المسافة: ${Math.round(distance)} متر`);
           break;
         }
       }
 
       if (!isWithinRange) {
-        const errorMsg = `أنت خارج نطاق جميع المصانع. أقرب موقع (${closestLocation?.name_ar}): ${Math.round(closestDistance)} متر. النطاق المسموح: ${closestLocation?.allowed_radius} متر.`;
-        console.log(`❌ رفض الحضور - ${errorMsg}`);
-        
-        if (isDevMode) {
-          console.log(`❌ تفاصيل المستخدم ${req.body.user_id}:`);
-          console.log(`   - الموقع الحالي: lat=${req.body.location.lat}, lng=${req.body.location.lng}`);
-          console.log(`   - أقرب موقع: ${closestLocation?.name_ar}`);
-          console.log(`   - المسافة: ${Math.round(closestDistance)} متر`);
-          console.log(`   - النطاق المطلوب: ${closestLocation?.allowed_radius} متر`);
-          console.log(`   - الفرق: ${Math.round(closestDistance - (closestLocation?.allowed_radius || 0))} متر خارج النطاق`);
-        }
+        const errorMsg = `أنت خارج نطاق المصنع. المسافة: ${Math.round(closestDistance)} متر. النطاق المسموح: ${closestLocation?.allowed_radius} متر.`;
+        console.log(`❌ رفض الحضور للمستخدم ${req.body.user_id} - ${errorMsg}`);
         
         return res.status(403).json({
           message: errorMsg,
+          code: "OUT_OF_RANGE",
+          distance: Math.round(closestDistance),
+          allowedRadius: closestLocation?.allowed_radius,
+          locationName: closestLocation?.name_ar,
           ...(isDevMode && {
             debug: {
-              userLocation: req.body.location,
+              userLocation: { lat, lng, accuracy },
               closestLocation: {
                 name: closestLocation?.name_ar,
-                distance: Math.round(closestDistance),
-                allowedRadius: closestLocation?.allowed_radius
+                lat: closestLocation?.latitude,
+                lng: closestLocation?.longitude
               }
             }
           })
         });
       }
 
-      const attendance = await storage.createAttendance(req.body);
+      // =============== إعداد بيانات الحضور مع معلومات التدقيق ===============
+      const attendanceData = {
+        ...req.body,
+        location_accuracy: accuracy,
+        location_lat: lat,
+        location_lng: lng,
+        factory_location_id: matchedLocation?.id,
+        device_info: JSON.stringify(deviceInfo),
+        distance_from_factory: Math.round(closestDistance)
+      };
+
+      const attendance = await storage.createAttendance(attendanceData);
+      
+      console.log(`✅ تم تسجيل الحضور بنجاح - المستخدم: ${req.body.user_id}, الموقع: ${matchedLocation?.name_ar}, المسافة: ${Math.round(closestDistance)}م`);
 
       // Send attendance notification
       try {
