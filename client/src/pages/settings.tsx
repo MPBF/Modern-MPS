@@ -2257,16 +2257,7 @@ export default function Settings() {
             </TabsContent>
 
             <TabsContent value="location" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>إعدادات موقع المصنع</CardTitle>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    حدد الموقع الجغرافي للمصنع والنطاق المسموح لتسجيل الحضور
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                </CardContent>
-              </Card>
+              <LocationSettingsForm />
             </TabsContent>
 
             <TabsContent value="whatsapp-webhooks" className="space-y-6">
