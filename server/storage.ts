@@ -466,7 +466,7 @@ export interface IStorage {
   }): Promise<Roll[]>;
   getRollsByProductionOrder(productionOrderId: number): Promise<Roll[]>;
   getRollsByStage(stage: string): Promise<Roll[]>;
-  createRoll(roll: InsertRoll): Promise<Roll>;
+  createRoll(roll: InsertRoll, options?: { skipWeightValidation?: boolean }): Promise<Roll>;
   updateRoll(id: number, updates: Partial<Roll>): Promise<Roll>;
 
   // Machines
@@ -2829,7 +2829,8 @@ export class DatabaseStorage implements IStorage {
       .offset(offset);
   }
 
-  async createRoll(insertRoll: InsertRoll): Promise<Roll> {
+  async createRoll(insertRoll: InsertRoll, options?: { skipWeightValidation?: boolean }): Promise<Roll> {
+    const skipWeightValidation = options?.skipWeightValidation || false;
     return await withDatabaseErrorHandling(
       async () => {
         // STEP 0: MANDATORY DATAVALIDATOR INTEGRATION - Validate BEFORE database write
@@ -2952,14 +2953,21 @@ export class DatabaseStorage implements IStorage {
             productionOrder.final_quantity_kg?.toString() || "0",
           );
 
-          // INVARIANT B: Sum of roll weights ≤ ProductionOrder.final_quantity_kg + 3% tolerance
-          const tolerance = finalQuantityKg * 0.03; // 3% tolerance
-          const maxAllowedWeight = finalQuantityKg + tolerance;
+          // INVARIANT B: Sum of roll weights ≤ ProductionOrder.final_quantity_kg + tolerance
+          // Skip weight validation for final rolls (when explicitly requested)
+          if (!skipWeightValidation) {
+            const tolerance = finalQuantityKg * 0.10; // 10% tolerance (increased from 3% to accommodate production variations)
+            const maxAllowedWeight = finalQuantityKg + tolerance;
 
-          if (newTotalWeight > maxAllowedWeight) {
-            throw new DatabaseError(
-              `تجاوز الوزن الإجمالي للرولات الحد المسموح: ${newTotalWeight.toFixed(2)}كغ > ${maxAllowedWeight.toFixed(2)}كغ (${finalQuantityKg.toFixed(2)}كغ + 3% تسامح)`,
-              { code: "INVARIANT_B_VIOLATION" },
+            if (newTotalWeight > maxAllowedWeight) {
+              throw new DatabaseError(
+                `تجاوز الوزن الإجمالي للرولات الحد المسموح: ${newTotalWeight.toFixed(2)}كغ > ${maxAllowedWeight.toFixed(2)}كغ (${finalQuantityKg.toFixed(2)}كغ + 10% تسامح)`,
+                { code: "INVARIANT_B_VIOLATION" },
+              );
+            }
+          } else {
+            console.log(
+              `[Storage] ⚠️ Weight validation skipped for final roll (skipWeightValidation=true). Total weight: ${newTotalWeight.toFixed(2)}كغ, Final quantity: ${finalQuantityKg.toFixed(2)}كغ`,
             );
           }
 
@@ -3026,12 +3034,14 @@ export class DatabaseStorage implements IStorage {
             } as any) // Type assertion for additional fields
             .returning();
 
+          const maxAllowedForLog = finalQuantityKg * 1.10; // 10% tolerance for logging
           console.log(
             `[Storage] Created roll ${rollNumber} (${productionOrder.production_order_number}-R${nextRollSeq.toString().padStart(2, "0")}) with invariant validation:`,
             {
               rollWeight: rollWeightKg,
               newTotalWeight: newTotalWeight.toFixed(2),
-              maxAllowed: maxAllowedWeight.toFixed(2),
+              maxAllowed: maxAllowedForLog.toFixed(2),
+              weightValidationSkipped: skipWeightValidation,
               filmMachine: filmMachine.status,
               printingMachine: insertRoll.printing_machine_id ? "will be assigned in printing stage" : "not assigned",
               cuttingMachine: insertRoll.cutting_machine_id ? "will be assigned in cutting stage" : "not assigned",
@@ -11969,7 +11979,8 @@ export class DatabaseStorage implements IStorage {
         }
 
         // Create the roll using the main createRoll method to ensure proper roll_seq generation
-        const newRoll = await this.createRoll(rollData);
+        // Skip weight validation for last roll since it may need to exceed the target
+        const newRoll = await this.createRoll(rollData, { skipWeightValidation: rollData.is_last_roll });
 
         // Update produced quantity (already handled in createRoll, but we need to update film_completion_percentage)
         const allRolls = await db
@@ -12074,7 +12085,8 @@ export class DatabaseStorage implements IStorage {
         }
 
         // Create the final roll using the main createRoll method to ensure proper roll_seq generation
-        const newRoll = await this.createRoll(rollData);
+        // Skip weight validation for final roll since it may exceed the target to complete production
+        const newRoll = await this.createRoll(rollData, { skipWeightValidation: true });
 
         // Update production order to mark film as completed
         const endTime = new Date();
