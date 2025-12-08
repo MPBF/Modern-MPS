@@ -2954,20 +2954,29 @@ export class DatabaseStorage implements IStorage {
           );
 
           // INVARIANT B: Sum of roll weights ≤ ProductionOrder.final_quantity_kg + tolerance
-          // Skip weight validation for final rolls (when explicitly requested)
+          // Skip weight validation for final/last rolls (when explicitly requested)
           if (!skipWeightValidation) {
-            const tolerance = finalQuantityKg * 0.10; // 10% tolerance (increased from 3% to accommodate production variations)
+            // Use 50% tolerance to accommodate production variations and overruns
+            const tolerancePercentage = 0.50; // 50% tolerance
+            const tolerance = finalQuantityKg * tolerancePercentage;
             const maxAllowedWeight = finalQuantityKg + tolerance;
 
             if (newTotalWeight > maxAllowedWeight) {
+              const overagePercentage = ((newTotalWeight - finalQuantityKg) / finalQuantityKg * 100).toFixed(1);
               throw new DatabaseError(
-                `تجاوز الوزن الإجمالي للرولات الحد المسموح: ${newTotalWeight.toFixed(2)}كغ > ${maxAllowedWeight.toFixed(2)}كغ (${finalQuantityKg.toFixed(2)}كغ + 10% تسامح)`,
+                `تجاوز الوزن الإجمالي للرولات الحد المسموح: ${newTotalWeight.toFixed(2)}كغ > ${maxAllowedWeight.toFixed(2)}كغ (${finalQuantityKg.toFixed(2)}كغ + 50% تسامح). الزيادة: ${overagePercentage}%`,
                 { code: "INVARIANT_B_VIOLATION" },
+              );
+            } else if (newTotalWeight > finalQuantityKg * 1.10) {
+              // Log warning when exceeding 10% but still allow
+              const overagePercentage = ((newTotalWeight - finalQuantityKg) / finalQuantityKg * 100).toFixed(1);
+              console.warn(
+                `[Storage] ⚠️ تحذير: الوزن الإجمالي للرولات (${newTotalWeight.toFixed(2)}كغ) يتجاوز الكمية المستهدفة (${finalQuantityKg.toFixed(2)}كغ) بنسبة ${overagePercentage}%`,
               );
             }
           } else {
             console.log(
-              `[Storage] ⚠️ Weight validation skipped for final roll (skipWeightValidation=true). Total weight: ${newTotalWeight.toFixed(2)}كغ, Final quantity: ${finalQuantityKg.toFixed(2)}كغ`,
+              `[Storage] ⚠️ Weight validation skipped (final/last roll). Total weight: ${newTotalWeight.toFixed(2)}كغ, Final quantity: ${finalQuantityKg.toFixed(2)}كغ`,
             );
           }
 
