@@ -179,20 +179,73 @@ export default function UserDashboard() {
     timeoutIdsRef.current = [];
   }, []);
 
+  // دالة احتياطية: تحديد الموقع عبر IP (دقة أقل لكن تعمل دائماً)
+  const tryIPGeolocation = useCallback(async () => {
+    if (!isMountedRef.current) return false;
+    
+    try {
+      console.log('🌐 جاري تحديد الموقع عبر IP...');
+      const response = await fetch('https://ipapi.co/json/', { 
+        signal: AbortSignal.timeout(10000) 
+      });
+      
+      if (!response.ok) throw new Error('IP API failed');
+      
+      const data = await response.json();
+      
+      if (data.latitude && data.longitude && isMountedRef.current) {
+        const newLocation = {
+          lat: data.latitude,
+          lng: data.longitude,
+          accuracy: 5000, // دقة تقريبية 5 كم
+          timestamp: Date.now(),
+        };
+        
+        console.log('✅ تم الحصول على الموقع عبر IP:', {
+          lat: newLocation.lat.toFixed(6),
+          lng: newLocation.lng.toFixed(6),
+          city: data.city,
+          country: data.country_name,
+        });
+
+        setCurrentLocation(newLocation);
+        setLastLocationUpdate(new Date());
+        setLocationError("");
+        setIsLoadingLocation(false);
+        
+        showLocationToast(
+          "✅ تم تحديد الموقع التقريبي",
+          `المنطقة: ${data.city || data.region || 'غير محدد'} (دقة تقريبية)`
+        );
+        return true;
+      }
+    } catch (err) {
+      console.error('❌ فشل تحديد الموقع عبر IP:', err);
+    }
+    return false;
+  }, [showLocationToast]);
+
   // دالة لطلب الموقع الجغرافي - مبسطة ومحسنة
   const requestLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      if (isMountedRef.current) setLocationError("المتصفح لا يدعم تحديد الموقع الجغرافي");
-      return;
-    }
-
     if (isMountedRef.current) {
       setIsLoadingLocation(true);
       setLocationError("");
     }
 
-    // محاولة واحدة بدقة عالية، ثم fallback لدقة منخفضة
-    const tryHighAccuracy = () => {
+    // إذا لم يكن GPS متاحاً، استخدم IP مباشرة
+    if (!navigator.geolocation) {
+      console.log('⚠️ GPS غير متاح، جاري استخدام IP...');
+      tryIPGeolocation().then(success => {
+        if (!success && isMountedRef.current) {
+          setLocationError("لا يمكن تحديد الموقع");
+          setIsLoadingLocation(false);
+        }
+      });
+      return;
+    }
+
+    // محاولة GPS أولاً، ثم IP كاحتياطي
+    const tryGPS = () => {
       if (!isMountedRef.current) return;
       
       navigator.geolocation.getCurrentPosition(
@@ -206,7 +259,7 @@ export default function UserDashboard() {
             timestamp: position.timestamp,
           };
           
-          console.log('✅ تم الحصول على الموقع:', {
+          console.log('✅ تم الحصول على الموقع GPS:', {
             lat: newLocation.lat.toFixed(6),
             lng: newLocation.lng.toFixed(6),
             accuracy: Math.round(newLocation.accuracy),
@@ -218,99 +271,57 @@ export default function UserDashboard() {
           setIsLoadingLocation(false);
           
           const accuracyMessage = newLocation.accuracy <= 50 
-            ? "دقة جيدة" 
+            ? "دقة ممتازة" 
             : newLocation.accuracy <= 200 
-              ? "دقة متوسطة" 
-              : "دقة منخفضة";
+              ? "دقة جيدة" 
+              : newLocation.accuracy <= 1000
+                ? "دقة متوسطة"
+                : "دقة منخفضة";
           
           showLocationToast(
             "✅ تم تحديث الموقع",
             `الدقة: ±${Math.round(newLocation.accuracy)} متر (${accuracyMessage})`
           );
         },
-        (error) => {
+        async (error) => {
           if (!isMountedRef.current) return;
           
-          // إذا فشلت الدقة العالية، جرب الدقة المنخفضة
-          console.warn('⚠️ فشل الحصول على موقع بدقة عالية، جاري المحاولة بدقة منخفضة...');
-          tryLowAccuracy();
+          console.warn('⚠️ فشل GPS:', error.code, error.message);
+          
+          // جرب IP كاحتياطي
+          console.log('🔄 جاري المحاولة عبر IP...');
+          const ipSuccess = await tryIPGeolocation();
+          
+          if (!ipSuccess && isMountedRef.current) {
+            setIsLoadingLocation(false);
+            let errorMessage = "لا يمكن الحصول على الموقع";
+            
+            switch (error.code) {
+              case error.PERMISSION_DENIED:
+                errorMessage = "يرجى السماح بالوصول إلى الموقع من إعدادات المتصفح";
+                break;
+              case error.POSITION_UNAVAILABLE:
+                errorMessage = "خدمات الموقع غير متاحة";
+                break;
+              case error.TIMEOUT:
+                errorMessage = "انتهت مهلة تحديد الموقع - حاول مرة أخرى";
+                break;
+            }
+            
+            setLocationError(errorMessage);
+            showLocationToast("خطأ في تحديد الموقع", errorMessage, "destructive");
+          }
         },
         {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 30000  // قبول موقع حتى 30 ثانية قديم
+          enableHighAccuracy: false,  // نبدأ بدقة منخفضة للسرعة
+          timeout: 8000,
+          maximumAge: 300000  // قبول موقع حتى 5 دقائق قديم
         }
       );
     };
 
-    const tryLowAccuracy = () => {
-      if (!isMountedRef.current) return;
-      
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          if (!isMountedRef.current) return;
-          
-          const newLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            timestamp: position.timestamp,
-          };
-          
-          console.log('✅ تم الحصول على الموقع (دقة منخفضة):', {
-            lat: newLocation.lat.toFixed(6),
-            lng: newLocation.lng.toFixed(6),
-            accuracy: Math.round(newLocation.accuracy),
-          });
-
-          setCurrentLocation(newLocation);
-          setLastLocationUpdate(new Date());
-          setLocationError("");
-          setIsLoadingLocation(false);
-          
-          showLocationToast(
-            "✅ تم تحديث الموقع",
-            `الدقة: ±${Math.round(newLocation.accuracy)} متر`
-          );
-        },
-        (error) => {
-          if (!isMountedRef.current) return;
-          handleLocationError(error);
-        },
-        {
-          enableHighAccuracy: false,
-          timeout: 15000,
-          maximumAge: 60000  // قبول موقع حتى دقيقة قديم
-        }
-      );
-    };
-
-    const handleLocationError = (error: GeolocationPositionError) => {
-      if (!isMountedRef.current) return;
-      
-      setIsLoadingLocation(false);
-      let errorMessage = "لا يمكن الحصول على الموقع الحالي";
-      
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          errorMessage = "يرجى السماح بالوصول إلى الموقع من إعدادات المتصفح";
-          break;
-        case error.POSITION_UNAVAILABLE:
-          errorMessage = "تأكد من تفعيل خدمات الموقع في جهازك";
-          break;
-        case error.TIMEOUT:
-          errorMessage = "انقر على 'تحديث الموقع' للمحاولة مرة أخرى";
-          break;
-      }
-      
-      console.error('❌ خطأ في الموقع:', error.code, error.message);
-      setLocationError(errorMessage);
-      
-      showLocationToast("خطأ في تحديد الموقع", errorMessage, "destructive");
-    };
-
-    tryHighAccuracy();
-  }, [showLocationToast]);
+    tryGPS();
+  }, [showLocationToast, tryIPGeolocation]);
 
   // تفعيل التتبع المستمر للموقع - مبسط
   const startLocationWatch = useCallback(() => {
