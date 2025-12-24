@@ -335,8 +335,8 @@ export default function UserDashboard() {
       },
       {
         enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 10000
+        timeout: 15000,
+        maximumAge: 0  // دائماً احصل على موقع جديد
       }
     );
 
