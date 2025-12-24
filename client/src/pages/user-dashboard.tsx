@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import PageLayout from "../components/layout/PageLayout";
 import UserProfile from "../components/dashboard/UserProfile";
 import {
@@ -140,32 +140,65 @@ export default function UserDashboard() {
   const [locationError, setLocationError] = useState<string>("");
   const [isLoadingLocation, setIsLoadingLocation] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
   const [lastLocationUpdate, setLastLocationUpdate] = useState<Date | null>(null);
+  
+  // Refs للتحكم في حالة المكون والتتبع
+  const isMountedRef = useRef(true);
+  const watchIdRef = useRef<number | null>(null);
+  const timeoutIdsRef = useRef<NodeJS.Timeout[]>([]);
+  const lastErrorToastRef = useRef<number>(0);
 
   // جلب مواقع المصانع النشطة من قاعدة البيانات
   const { data: activeLocations, isLoading: isLoadingLocations } = useQuery<any[]>({
     queryKey: ["/api/factory-locations/active"],
   });
 
-  // دالة لطلب الموقع الجغرافي بدقة عالية (تجمع عدة قراءات وتختار الأفضل)
-  const requestLocation = () => {
+
+  // دالة لعرض toast مع debounce لتجنب تكرار الرسائل
+  const showLocationToast = useCallback((title: string, description: string, variant?: "default" | "destructive") => {
+    const now = Date.now();
+    // تجنب عرض نفس الخطأ خلال 5 ثوان
+    if (variant === "destructive" && now - lastErrorToastRef.current < 5000) {
+      return;
+    }
+    if (variant === "destructive") {
+      lastErrorToastRef.current = now;
+    }
+    toast({ title, description, variant });
+  }, [toast]);
+
+  // تنظيف جميع الموارد
+  const cleanupLocation = useCallback(() => {
+    // إيقاف التتبع
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    // إلغاء جميع المؤقتات
+    timeoutIdsRef.current.forEach(id => clearTimeout(id));
+    timeoutIdsRef.current = [];
+  }, []);
+
+  // دالة لطلب الموقع الجغرافي - مبسطة ومحسنة
+  const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setLocationError("المتصفح لا يدعم تحديد الموقع الجغرافي");
+      if (isMountedRef.current) setLocationError("المتصفح لا يدعم تحديد الموقع الجغرافي");
       return;
     }
 
-    setIsLoadingLocation(true);
-    setLocationError("");
+    if (isMountedRef.current) {
+      setIsLoadingLocation(true);
+      setLocationError("");
+    }
 
-    let bestLocation: { lat: number; lng: number; accuracy: number; timestamp: number } | null = null;
-    let readingsCount = 0;
-    const maxReadings = 3;
-    const readingTimeout = 8000;
-
-    const tryGetLocation = () => {
+    // محاولة واحدة بدقة عالية، ثم fallback لدقة منخفضة
+    const tryHighAccuracy = () => {
+      if (!isMountedRef.current) return;
+      
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          if (!isMountedRef.current) return;
+          
           const newLocation = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
@@ -173,119 +206,125 @@ export default function UserDashboard() {
             timestamp: position.timestamp,
           };
           
-          readingsCount++;
-          console.log(`📍 قراءة ${readingsCount}/${maxReadings}:`, {
-            lat: newLocation.lat,
-            lng: newLocation.lng,
-            accuracy: Math.round(newLocation.accuracy || 0),
+          console.log('✅ تم الحصول على الموقع:', {
+            lat: newLocation.lat.toFixed(6),
+            lng: newLocation.lng.toFixed(6),
+            accuracy: Math.round(newLocation.accuracy),
           });
 
-          // اختر أفضل قراءة (أقل accuracy = أفضل)
-          if (!bestLocation || newLocation.accuracy < bestLocation.accuracy) {
-            bestLocation = newLocation;
-          }
-
-          // إذا حصلنا على دقة ممتازة (< 30 متر) نتوقف
-          if (newLocation.accuracy <= 30 || readingsCount >= maxReadings) {
-            finishLocationRequest();
-          } else {
-            // جرب مرة أخرى للحصول على دقة أفضل
-            setTimeout(tryGetLocation, 1000);
-          }
+          setCurrentLocation(newLocation);
+          setLastLocationUpdate(new Date());
+          setLocationError("");
+          setIsLoadingLocation(false);
+          
+          const accuracyMessage = newLocation.accuracy <= 50 
+            ? "دقة جيدة" 
+            : newLocation.accuracy <= 200 
+              ? "دقة متوسطة" 
+              : "دقة منخفضة";
+          
+          showLocationToast(
+            "✅ تم تحديث الموقع",
+            `الدقة: ±${Math.round(newLocation.accuracy)} متر (${accuracyMessage})`
+          );
         },
         (error) => {
-          readingsCount++;
-          console.warn(`⚠️ قراءة ${readingsCount} فشلت:`, error.message);
+          if (!isMountedRef.current) return;
           
-          if (readingsCount >= maxReadings) {
-            if (bestLocation) {
-              finishLocationRequest();
-            } else {
-              handleLocationError(error);
-            }
-          } else {
-            setTimeout(tryGetLocation, 1000);
-          }
+          // إذا فشلت الدقة العالية، جرب الدقة المنخفضة
+          console.warn('⚠️ فشل الحصول على موقع بدقة عالية، جاري المحاولة بدقة منخفضة...');
+          tryLowAccuracy();
         },
         {
           enableHighAccuracy: true,
-          timeout: readingTimeout,
-          maximumAge: 0
+          timeout: 10000,
+          maximumAge: 30000  // قبول موقع حتى 30 ثانية قديم
         }
       );
     };
 
-    const finishLocationRequest = () => {
-      if (bestLocation) {
-        console.log('✅ أفضل قراءة:', {
-          lat: bestLocation.lat,
-          lng: bestLocation.lng,
-          accuracy: Math.round(bestLocation.accuracy),
-        });
+    const tryLowAccuracy = () => {
+      if (!isMountedRef.current) return;
+      
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (!isMountedRef.current) return;
+          
+          const newLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: position.timestamp,
+          };
+          
+          console.log('✅ تم الحصول على الموقع (دقة منخفضة):', {
+            lat: newLocation.lat.toFixed(6),
+            lng: newLocation.lng.toFixed(6),
+            accuracy: Math.round(newLocation.accuracy),
+          });
 
-        setCurrentLocation(bestLocation);
-        setLastLocationUpdate(new Date());
-        setLocationError("");
-        setIsLoadingLocation(false);
-        
-        const accuracyMessage = bestLocation.accuracy <= 20 
-          ? "دقة عالية ممتازة" 
-          : bestLocation.accuracy <= 50 
-            ? "دقة جيدة" 
-            : bestLocation.accuracy <= 100 
-              ? "دقة متوسطة" 
-              : "دقة منخفضة - حاول الانتقال لمكان مفتوح";
-        
-        toast({
-          title: "✅ تم تحديث الموقع",
-          description: `الدقة: ±${Math.round(bestLocation.accuracy)} متر (${accuracyMessage})`,
-        });
-      }
+          setCurrentLocation(newLocation);
+          setLastLocationUpdate(new Date());
+          setLocationError("");
+          setIsLoadingLocation(false);
+          
+          showLocationToast(
+            "✅ تم تحديث الموقع",
+            `الدقة: ±${Math.round(newLocation.accuracy)} متر`
+          );
+        },
+        (error) => {
+          if (!isMountedRef.current) return;
+          handleLocationError(error);
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 15000,
+          maximumAge: 60000  // قبول موقع حتى دقيقة قديم
+        }
+      );
     };
 
     const handleLocationError = (error: GeolocationPositionError) => {
+      if (!isMountedRef.current) return;
+      
       setIsLoadingLocation(false);
       let errorMessage = "لا يمكن الحصول على الموقع الحالي";
       
       switch (error.code) {
         case error.PERMISSION_DENIED:
-          errorMessage = "تم رفض الإذن للوصول إلى الموقع. يرجى السماح بالوصول إلى الموقع من إعدادات المتصفح";
+          errorMessage = "يرجى السماح بالوصول إلى الموقع من إعدادات المتصفح";
           break;
         case error.POSITION_UNAVAILABLE:
-          errorMessage = "معلومات الموقع غير متوفرة. تأكد من تفعيل خدمات الموقع في جهازك";
+          errorMessage = "تأكد من تفعيل خدمات الموقع في جهازك";
           break;
         case error.TIMEOUT:
-          errorMessage = "انتهت مهلة طلب الموقع. يرجى المحاولة مرة أخرى في مكان مفتوح";
+          errorMessage = "انقر على 'تحديث الموقع' للمحاولة مرة أخرى";
           break;
       }
       
-      console.error('❌ خطأ في الموقع:', errorMessage, error);
+      console.error('❌ خطأ في الموقع:', error.code, error.message);
       setLocationError(errorMessage);
       
-      toast({
-        title: "خطأ في تحديد الموقع",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      showLocationToast("خطأ في تحديد الموقع", errorMessage, "destructive");
     };
 
-    // ابدأ جمع القراءات
-    tryGetLocation();
-  };
+    tryHighAccuracy();
+  }, [showLocationToast]);
 
-  // تفعيل التتبع المستمر للموقع مع الاحتفاظ بأفضل قراءة
-  const startLocationWatch = () => {
-    if (!navigator.geolocation) {
-      return;
+  // تفعيل التتبع المستمر للموقع - مبسط
+  const startLocationWatch = useCallback(() => {
+    if (!navigator.geolocation || !isMountedRef.current) return;
+
+    // إيقاف التتبع القديم
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
     }
 
-    // إيقاف التتبع القديم إذا كان موجوداً
-    if (locationWatchId !== null) {
-      navigator.geolocation.clearWatch(locationWatchId);
-    }
-
-    const watchId = navigator.geolocation.watchPosition(
+    watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
+        if (!isMountedRef.current) return;
+        
         const newLocation = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
@@ -293,20 +332,20 @@ export default function UserDashboard() {
           timestamp: position.timestamp,
         };
         
-        // فقط قم بتحديث الموقع إذا كانت القراءة الجديدة أفضل أو إذا مر وقت طويل
+        // تحديث الموقع فقط إذا كانت القراءة أفضل
         setCurrentLocation((prevLocation) => {
+          if (!isMountedRef.current) return prevLocation;
+          
           const shouldUpdate = 
             !prevLocation || 
-            newLocation.accuracy < (prevLocation.accuracy || Infinity) ||
-            (Date.now() - (prevLocation.timestamp || 0)) > 60000; // تحديث كل دقيقة على الأقل
+            newLocation.accuracy < (prevLocation.accuracy || Infinity) * 0.9 ||  // دقة أفضل بـ 10% على الأقل
+            (Date.now() - (prevLocation.timestamp || 0)) > 120000;  // أو مر دقيقتان
           
           if (shouldUpdate) {
-            console.log('📍 تحديث تلقائي للموقع:', {
-              lat: newLocation.lat,
-              lng: newLocation.lng,
-              accuracy: Math.round(newLocation.accuracy || 0),
-              reason: !prevLocation ? 'أول قراءة' : 
-                      newLocation.accuracy < (prevLocation.accuracy || Infinity) ? 'دقة أفضل' : 'تحديث دوري'
+            console.log('📍 تحديث تلقائي:', {
+              lat: newLocation.lat.toFixed(6),
+              lng: newLocation.lng.toFixed(6),
+              accuracy: Math.round(newLocation.accuracy),
             });
             setLastLocationUpdate(new Date());
             setLocationError("");
@@ -316,51 +355,35 @@ export default function UserDashboard() {
         });
       },
       (error) => {
-        console.error('❌ خطأ في التتبع التلقائي:', error);
-        
-        let errorMessage = "خطأ في التتبع التلقائي للموقع";
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = "تم رفض الإذن للتتبع التلقائي. يرجى تحديث الموقع يدوياً";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "الموقع غير متاح. تأكد من تفعيل GPS";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "انتهت مهلة التتبع التلقائي";
-            break;
-        }
-        
-        setLocationError(errorMessage);
+        // لا نعرض أخطاء التتبع التلقائي للمستخدم - فقط نسجلها
+        console.warn('⚠️ خطأ في التتبع التلقائي:', error.code, error.message);
       },
       {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0  // دائماً احصل على موقع جديد
+        enableHighAccuracy: false,  // استخدام دقة منخفضة للتتبع المستمر لتوفير البطارية
+        timeout: 30000,
+        maximumAge: 30000
       }
     );
-
-    setLocationWatchId(watchId);
-  };
-
-  // إيقاف التتبع المستمر للموقع
-  const stopLocationWatch = () => {
-    if (locationWatchId !== null) {
-      navigator.geolocation.clearWatch(locationWatchId);
-      setLocationWatchId(null);
-    }
-  };
-
-  // Get current location on mount and start watching
-  useEffect(() => {
-    requestLocation();
-    startLocationWatch();
-
-    // إيقاف التتبع عند إغلاق المكون
-    return () => {
-      stopLocationWatch();
-    };
   }, []);
+
+  // تهيئة الموقع عند تحميل المكون
+  useEffect(() => {
+    isMountedRef.current = true;
+    
+    // تأخير بسيط لتجنب التشغيل المزدوج في StrictMode
+    const initTimeout = setTimeout(() => {
+      if (isMountedRef.current) {
+        requestLocation();
+        startLocationWatch();
+      }
+    }, 100);
+
+    return () => {
+      isMountedRef.current = false;
+      clearTimeout(initTimeout);
+      cleanupLocation();
+    };
+  }, [requestLocation, startLocationWatch, cleanupLocation]);
 
   // Update time display every minute for live hour calculation
   useEffect(() => {
@@ -1733,8 +1756,8 @@ export default function UserDashboard() {
                             >
                               {isLoadingLocation ? "جاري التحديث..." : "🔄 تحديث الموقع"}
                             </Button>
-                            <Badge variant={locationWatchId !== null ? "default" : "secondary"} className="text-xs text-center">
-                              {locationWatchId !== null ? "✅ التتبع التلقائي مفعل" : "التتبع التلقائي"}
+                            <Badge variant={watchIdRef.current !== null ? "default" : "secondary"} className="text-xs text-center">
+                              {watchIdRef.current !== null ? "✅ التتبع التلقائي مفعل" : "التتبع التلقائي"}
                             </Badge>
                           </div>
                         </div>
